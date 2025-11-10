@@ -1258,28 +1258,35 @@ def auto_scrape():
 # Start auto scraping in background thread
 threading.Thread(target=auto_scrape, daemon=True).start()
 
-@app.route('/api/youtube', methods=['POST'])
-def youtube_insert():
-    """
-    Your teammates will POST YouTube data here
-    """
+import os
+from flask import request, jsonify
+
+TEAM_API_KEY = os.environ.get("TEAM_API_KEY")
+
+# ---------------- YouTube Data API ----------------
+@app.route("/api/youtube", methods=["POST"])
+def add_youtube():
+    if request.headers.get("X-API-KEY") != TEAM_API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
     try:
-        data = request.json
-        save_youtube_to_supabase(data)
-        return jsonify({"message": "YouTube data inserted successfully"}), 201
+        supabase.table("youtube_videos").insert(data).execute()
+        return jsonify({"message": "YouTube data inserted"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/enews-image', methods=['POST'])
-def enews_image_insert():
-    """
-    Your teammates will POST analyzed e-news image data here
-    """
+# ------------- E-Newspaper Image API --------------
+@app.route("/api/enews", methods=["POST"])
+def add_enews():
+    if request.headers.get("X-API-KEY") != TEAM_API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
     try:
-        data = request.json
-        save_enews_image_to_supabase(data)
-        return jsonify({"message": "E-news image data inserted successfully"}), 201
+        supabase.table("enews_image_analysis").insert(data).execute()
+        return jsonify({"message": "E-News data inserted"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
