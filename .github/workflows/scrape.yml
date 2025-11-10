@@ -1,0 +1,14 @@
+name: Auto Trigger Scraper
+
+on:
+  schedule:
+    - cron: "*/2 * * * *"    # every 5 minutes (GitHub time = UTC)
+  workflow_dispatch:         # allows manual run
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render scrape endpoint
+        run: |
+          curl -X POST https://news-web-scraper-1.onrender.com/api/scrape
