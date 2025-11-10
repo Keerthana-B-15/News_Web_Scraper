@@ -902,9 +902,22 @@ def get_news():
                 return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
         # Get articles (always scrape fresh)
-        # Always return stored articles (no forced scraping here)
-        cached_data = scraper.storage.load_daily_news(date)
-        articles_data = cached_data['articles']
+        from datetime import datetime, timedelta
+        import pytz
+
+        # Get last 3 hours of data from Supabase instead of JSON cache
+        india_tz = pytz.timezone("Asia/Kolkata")
+        three_hours_ago = datetime.now(india_tz) - timedelta(hours=3)
+
+        query = (
+            supabase.table("news_articles")
+            .select("*")
+            .gte("timestamp", three_hours_ago.isoformat())
+        )
+
+        data = query.execute()
+        articles_data = data.data or []
+
 
 
         # Filter by ministry if specified
@@ -1350,5 +1363,5 @@ if __name__ == '__main__':
     print("  • GET  /api/health - Health check")
     print()
 
-    print("🔧 Server starting on http://localhost:5000")
+    print("🔧 Server starting on https://news-web-scraper-1.onrender.com/api/news")
     app.run(debug=True, port=5000)
