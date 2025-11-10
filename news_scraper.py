@@ -903,11 +903,9 @@ def get_news():
 
         # Get articles (always scrape fresh)
         from datetime import datetime, timedelta
-        import pytz
+        from zoneinfo import ZoneInfo
+        three_hours_ago = datetime.now(ZoneInfo("Asia/Kolkata")) - timedelta(hours=3)
 
-        # Get last 3 hours of data from Supabase instead of JSON cache
-        india_tz = pytz.timezone("Asia/Kolkata")
-        three_hours_ago = datetime.now(india_tz) - timedelta(hours=3)
 
         query = (
             supabase.table("news_articles")
