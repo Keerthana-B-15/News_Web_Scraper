@@ -1260,10 +1260,11 @@ import threading
 
 def auto_scrape():
     while True:
-        print("\n⏳ Auto scraping triggered (every 2 minutes)...")
+        print("\n⏳ Auto scraping triggered (every 4hours)...")
         scraper.scrape_all_sources()
-        print("✅ Auto scrape cycle complete. Waiting 2 minutes...\n")
-        time.sleep(120)  # 120 sec = 2 min
+        print("✅ Auto scrape cycle complete. Waiting 4hours...\n")
+        time.sleep(4 * 60 * 60)  # 4 hours
+
 
 
 # Start auto scraping in background thread
