@@ -1,162 +1,146 @@
 {
-    "health": {
-        "high_priority": [
-            "health", "hospital", "doctor", "medicine", "medical", "healthcare", "treatment", "disease", "illness", "patient", "clinic", "pharmacy", "vaccination", "vaccine", "covid", "corona", "pandemic", "epidemic",
-            "स्वास्थ्य", "अस्पताल", "डॉक्टर", "दवा", "इलाज", "चिकित्सा", "रोग", "बीमारी", "मरीज", "दवाखाना", "टीकाकरण", "वैक्सीन", "कोविड", "महामारी",
-            "স্বাস্থ্য", "হাসপাতাল", "ডাক্তার", "ওষুধ", "চিকিৎসা", "রোগ", "অসুখ", "রোগী", "ক্লিনিক", "টিকা", "কোভিড", "মহামারী",
-            "ಆರೋಗ್ಯ", "ಆಸ್ಪತ್ರೆ", "ವೈದ್ಯ", "ಔಷಧ", "ಚಿಕಿತ್ಸೆ", "ರೋಗ", "ಅನಾರೋಗ್ಯ", "ರೋಗಿ", "ಕ್ಲಿನಿಕ್", "ಲಸಿಕೆ", "ಕೋವಿಡ್"
-        ],
-        "medium_priority": [
-            "nutrition", "diet", "food safety", "mental health", "surgery", "cancer", "diabetes", "heart", "blood pressure",
-            "पोषण", "आहार", "खाद्य सुरक्षा", "मानसिक स्वास्थ्य", "शल्यचिकित्सा", "कैंसर", "मधुमेह", "हृदय", "रक्तचाप",
-            "পুষ্টি", "খাদ্য", "খাদ্য নিরাপত্তা", "মানসিক স্বাস্থ্য", "শল্যচিকিৎসা", "ক্যান্সার", "ডায়াবেটিস", "হৃদয়", "রক্তচাপ",
-            "ಪೋಷಣೆ", "ಆಹಾರ", "ಮಾನಸಿಕ ಆರೋಗ್ಯ", "ಶಸ್ತ್ರಚಿಕಿತ್ಸೆ", "ಕ್ಯಾನ್ಸರ್", "ಮಧುಮೇಹ", "ಹೃದಯ"
-        ],
-        "low_priority": [
-            "fitness", "exercise", "vitamin", "protein", "wellness", "hygiene",
-            "फिटनेस", "व्यायाम", "विटामिन", "प्रोटीन", "स्वच्छता",
-            "ফিটনেস", "ব্যায়াম", "ভিটামিন", "প্রোটিন", "স্বচ্ছতা",
-            "ಫಿಟ್ನೆಸ್", "ವ್ಯಾಯಾಮ", "ವಿಟಮಿನ್", "ಪ್ರೋಟೀನ್"
-        ]
-    },
-    "finance": {
-        "high_priority": [
-            "finance", "economy", "budget", "tax", "gst", "bank", "banking", "money", "currency", "rupee", "investment", "stock", "market", "inflation", "gdp",
-            "वित्त", "अर्थव्यवस्था", "बजट", "कर", "जीएसटी", "बैंक", "बैंकिंग", "पैसा", "मुद्रा", "रुपया", "निवेश", "शेयर", "बाजार", "मुद्रास्फीति",
-            "অর্থ", "অর্থনীতি", "বাজেট", "কর", "জিএসটি", "ব্যাংক", "ব্যাংকিং", "টাকা", "মুদ্রা", "বিনিয়োগ", "শেয়ার", "বাজার", "মুদ্রাস্ফীতি",
-            "ಹಣಕಾಸು", "ಆರ್ಥಿಕತೆ", "ಬಜೆಟ್", "ತೆರಿಗೆ", "ಬ್ಯಾಂಕ್", "ಹಣ", "ಹೂಡಿಕೆ", "ಮಾರುಕಟ್ಟೆ"
-        ],
-        "medium_priority": [
-            "business", "trade", "export", "import", "loan", "credit", "debt", "revenue", "profit", "loss",
-            "व्यापार", "व्यवसाय", "निर्यात", "आयात", "ऋण", "क्रेडिट", "आय", "लाभ", "हानि",
-            "ব্যবসা", "বাণিজ্য", "রপ্তানি", "আমদানি", "ঋণ", "আয়", "লাভ", "ক্ষতি",
-            "ವ್ಯಾಪಾರ", "ರಫ್ತು", "ಆಮದು", "ಸಾಲ", "ಆದಾಯ", "ಲಾಭ"
-        ],
-        "low_priority": [
-            "financial", "economic", "fiscal", "monetary", "corporate", "company",
-            "वित्तीय", "आर्थिक", "राजकोषीय", "मौद्रिक", "कंपनी",
-            "আর্থিক", "আর্থিক", "কোম্পানি",
-            "ಆರ್ಥಿಕ", "ಕಂಪನಿ"
-        ]
-    },
-    "education": {
-        "high_priority": [
-            "education", "school", "college", "university", "student", "teacher", "exam", "admission", "degree", "scholarship", "learning",
-            "शिक्षा", "स्कूल", "कॉलेज", "विश्वविद्यालय", "छात्र", "शिक्षक", "परीक्षा", "प्रवेश", "डिग्री", "छात्रवृत्ति", "अध्ययन",
-            "শিক্ষা", "স্কুল", "কলেজ", "বিশ্ববিদ্যালয়", "ছাত্র", "শিক্ষক", "পরীক্ষা", "ভর্তি", "ডিগ্রি", "বৃত্তি", "অধ্যয়ন",
-            "ಶಿಕ್ಷಣ", "ಶಾಲೆ", "ಕಾಲೇಜು", "ವಿಶ್ವವಿದ್ಯಾಲಯ", "ವಿದ್ಯಾರ್ಥಿ", "ಶಿಕ್ಷಕ", "ಪರೀಕ್ಷೆ", "ಪ್ರವೇಶ", "ಪದವಿ", "ವಿದ್ಯಾರ್ಥಿವೇತನ"
-        ],
-        "medium_priority": [
-            "classroom", "curriculum", "academic", "grade", "result", "mark", "score", "literacy", "research",
-            "कक्षा", "पाठ्यक्रम", "शैक्षणिक", "ग्रेड", "परिणाम", "अंक", "साक्षरता", "अनुसंधान",
-            "শ্রেণীকক্ষ", "পাঠ্যক্রম", "একাডেমিক", "গ্রেড", "ফলাফল", "নম্বর", "সাক্ষরতা", "গবেষণা",
-            "ತರಗತಿ", "ಪಠ್ಯಕ್ರಮ", "ಶೈಕ್ಷಣಿಕ", "ಫಲಿತಾಂಶ", "ಸಂಶೋಧನೆ"
-        ],
-        "low_priority": [
-            "knowledge", "skill", "training", "workshop", "seminar",
-            "ज्ञान", "कौशल", "प्रशिक्षण", "कार्यशाला", "संगोष्ठी",
-            "জ্ঞান", "দক্ষতা", "প্রশিক্ষণ", "কর্মশালা", "সেমিনার",
-            "ಜ್ಞಾನ", "ಕೌಶಲ್ಯ", "ತರಬೇತಿ"
-        ]
-    },
-    "sports": {
-        "high_priority": [
-            "sports", "cricket", "football", "hockey", "tennis", "badminton", "olympics", "player", "match", "tournament", "game", "championship",
-            "खेल", "क्रिकेट", "फुटबॉल", "हॉकी", "टेनिस", "बैडमिंटन", "ओलंपिक", "खिलाड़ी", "मैच", "टूर्नामेंट", "खेल", "चैंपियनशिप",
-            "খেলা", "ক্রিকেট", "ফুটবল", "হকি", "টেনিস", "ব্যাডমিন্টন", "অলিম্পিক", "খেলোয়াড়", "ম্যাচ", "টুর্নামেন্ট", "চ্যাম্পিয়নশিপ",
-            "ಕ್ರೀಡೆ", "ಕ್ರಿಕೆಟ್", "ಫುಟ್ಬಾಲ್", "ಹಾಕಿ", "ಟೆನ್ನಿಸ್", "ಬ್ಯಾಡ್ಮಿಂಟನ್", "ಒಲಿಂಪಿಕ್ಸ್", "ಆಟಗಾರ", "ಪಂದ್ಯ", "ಟೂರ್ನಮೆಂಟ್"
-        ],
-        "medium_priority": [
-            "athlete", "coach", "team", "medal", "winner", "champion", "score", "goal", "run", "wicket",
-            "एथलीट", "कोच", "टीम", "पदक", "विजेता", "चैंपियन", "स्कोर", "गोल", "रन", "विकेट",
-            "অ্যাথলিট", "কোচ", "দল", "পদক", "বিজয়ী", "চ্যাম্পিয়ন", "স্কোর", "গোল", "রান", "উইকেট",
-            "ಅಥ್ಲೀಟ್", "ತರಬೇತುದಾರ", "ತಂಡ", "ಪದಕ", "ವಿಜೇತ", "ಚಾಂಪಿಯನ್", "ಗೋಲ್", "ರನ್"
-        ],
-        "low_priority": [
-            "stadium", "ground", "field", "fitness", "training", "practice",
-            "स्टेडियम", "मैदान", "फिटनेस", "प्रशिक्षण", "अभ्यास",
-            "স্টেডিয়াম", "মাঠ", "ফিটনেস", "প্রশিক্ষণ", "অনুশীলন",
-            "ಕ್ರೀಡಾಂಗಣ", "ಮೈದಾನ", "ಫಿಟ್ನೆಸ್", "ತರಬೇತಿ"
-        ]
-    },
-    "international_affairs": {
-        "high_priority": [
-            "international", "foreign", "diplomat", "embassy", "visa", "border", "treaty", "agreement", "summit", "bilateral", "multilateral",
-            "अंतर्राष्ट्रीय", "विदेशी", "राजदूत", "दूतावास", "वीजा", "सीमा", "संधि", "समझौता", "शिखर सम्मेलन", "द्विपक्षीय",
-            "আন্তর্জাতিক", "বিদেশি", "রাষ্ট্রদূত", "দূতাবাস", "ভিসা", "সীমানা", "চুক্তি", "সমঝোতা", "শীর্ষ সম্মেলন", "দ্বিপাক্ষিক",
-            "ಅಂತರರಾಷ್ಟ್ರೀಯ", "ವಿದೇಶಿ", "ರಾಯಭಾರಿ", "ದೂತಾವಾಸ", "ವೀಸಾ", "ಗಡಿ", "ಒಪ್ಪಂದ", "ಶೃಂಗಸಭೆ"
-        ],
-        "medium_priority": [
-            "china", "pakistan", "america", "usa", "russia", "bangladesh", "nepal", "sri lanka", "trade war", "sanction",
-            "चीन", "पाकिस्तान", "अमेरिका", "रूस", "बांग्लादेश", "नेपाल", "श्रीलंका", "व्यापार युद्ध", "प्रतिबंध",
-            "চীন", "পাকিস্তান", "আমেরিকা", "রাশিয়া", "বাংলাদেশ", "নেপাল", "শ্রীলঙ্কা", "বাণিজ্য যুদ্ধ", "নিষেধাজ্ঞা",
-            "ಚೀನಾ", "ಪಾಕಿಸ್ತಾನ", "ಅಮೇರಿಕಾ", "ರಷ್ಯಾ", "ಬಾಂಗ್ಲಾದೇಶ", "ನೇಪಾಳ", "ಶ್ರೀಲಂಕಾ"
-        ],
-        "low_priority": [
-            "global", "world", "united nations", "un", "nato", "g7", "g20",
-            "वैश्विक", "विश्व", "संयुक्त राष्ट्र", "जी20",
-            "বৈশ্বিক", "বিশ্ব", "জাতিসংঘ", "জি২০",
-            "ಜಾಗತಿಕ", "ಪ್ರಪಂಚ", "ವಿಶ್ವಸಂಸ್ಥೆ"
-        ]
-    },
-    "agriculture": {
-        "high_priority": [
-            "agriculture", "farming", "farmer", "crop", "harvest", "irrigation", "fertilizer", "seed", "pesticide", "soil",
-            "कृषि", "खेती", "किसान", "फसल", "कटाई", "सिंचाई", "उर्वरक", "बीज", "कीटनाशक", "मिट्टी",
-            "কৃষি", "চাষাবাদ", "কৃষক", "ফসল", "ফসল কাটা", "সেচ", "সার", "বীজ", "কীটনাশক", "মাটি",
-            "ಕೃಷಿ", "ಕೃಷಿಕ", "ರೈತ", "ಬೆಳೆ", "ಸುಗ್ಗಿ", "ನೀರಾವರಿ", "ಗೊಬ್ಬರ", "ಬೀಜ", "ಮಣ್ಣು"
-        ],
-        "medium_priority": [
-            "rice", "wheat", "cotton", "sugarcane", "msp", "procurement", "subsidy", "rural", "village",
-            "चावल", "गेहूं", "कपास", "गन्ना", "एमएसपी", "खरीद", "सब्सिडी", "ग्रामीण", "गांव",
-            "চাল", "গম", "তুলা", "আখ", "এমএসপি", "ক্রয়", "ভর্তুকি", "গ্রামীণ", "গ্রাম",
-            "ಅಕ್ಕಿ", "ಗೋಧಿ", "ಹತ್ತಿ", "ಕಬ್ಬು", "ಎಂಎಸ್ಪಿ", "ಗ್ರಾಮೀಣ", "ಗ್ರಾಮ"
-        ],
-        "low_priority": [
-            "organic", "biotechnology", "gmo", "climate change", "drought", "flood",
-            "जैविक", "जैव प्रौद्योगिकी", "जीएमओ", "जलवायु परिवर्तन", "सूखा", "बाढ़",
-            "জৈব", "জৈবপ্রযুক্তি", "জিএমও", "জলবায়ু পরিবর্তন", "খরা", "বন্যা",
-            "ಸಾವಯವ", "ಜೈವತಂತ್ರಜ್ಞಾನ", "ಹವಾಮಾನ ಬದಲಾವಣೆ", "ಬರಗಾಲ", "ಪ್ರವಾಹ"
-        ]
-    },
-    "politics": {
-        "high_priority": [
-            "politics", "government", "minister", "prime minister", "president", "cabinet", "parliament", "assembly", "mps", "election", "mla", "bjp", "congress", "aap", "trinamool", "cpi", "cpim", "sp", "bsp", "sena", "rajya sabha", "lok sabha", "modi", "rahul", "kejriwal", "mamata", "adityanath", "oath", "speaker", "chief minister", "governor", "government formation",
-            "राजनीति", "सरकार", "मंत्री", "प्रधानमंत्री", "राष्ट्रपति", "मंत्रिमंडल", "संसद", "विधानसभा", "सांसद", "चुनाव", "विधायक", "बीजेपी", "कांग्रेस", "आप", "टीएमसी", "सीपीआई", "सीपीएम", "सपा", "बसपा", "शिवसेना", "राज्यसभा", "लोकसभा", "मोदी", "राहुल", "केजरीवाल", "ममता", "योगी", "शपथ", "सभापति", "मुख्यमंत्री", "राज्यपाल", "सरकार गठन",
-            "রাজনীতি", "সরকার", "মন্ত্রী", "প্রধানমন্ত্রী", "রাষ্ট্রপতি", "মন্ত্রিসভা", "সংসদ", "বিধানসভা", "সাংসদ", "নির্বাচন", "এমএলএ", "বিজেপি", "কংগ্রেস", "আপ", "তৃণমূল", "সিপিআই", "সিপিআইএম", "এসপি", "বিএসপি", "শিবসেনা", "রাজ্যসভা", "লোকসভা", "মোদি", "রাহুল", "কের্জিওয়াল", "মমতা", "যোগী", "শপথ", "স্পিকার", "মুখ্যমন্ত্রী", "রাজ্যপাল", "সরকার গঠন",
-            "ರಾಜಕೀಯ", "ಸರಕಾರ", "ಮಂತ್ರಿಗಳು", "ಮುಖ್ಯಮಂತ್ರಿ", "ಪ್ರಧಾನಮಂತ್ರಿ", "ರಾಷ್ಟ್ರಪತಿ", "ಕ್ಯಾಬಿನೆಟ್", "ಸಂಸತ್ತು", "ವಿಧಾನಸಭೆ", "ಸಂಸದ", "ಚುನಾವಣೆ", "ವಿಧಾಯಕ", "ಬಿಜೆಪಿ", "ಕಾಂಗ್ರೆಸ್", "ಆಪ್", "ಟಿಎಂಸಿ", "ಸಿಪಿಐ", "ಸಿಪಿಐಎಂ", "ಎಸ್‌ಪಿ", "ಬಿ‌ಎಸ್‌ಪಿ", "ಶಿವಸೇನೆ", "ರಾಜ್ಯಸಭೆ", "ಲೋಕಸಭೆ", "ಮೋದಿ", "ರಾಹುಲ್", "ಕೇಜರಿವಾಲ್", "ಮಮತಾ", "ಯೋಗಿ", "ಪ್ರಮುಖ ಸಚಿವ", "ಸ್ಪೀಕರ್", "ರಾಜ್ಯಪಾಲ", "ಸರಕಾರ ರಚನೆ"
-        ],
-        "medium_priority": [
-            "election", "vote", "by-election", "campaign", "manifesto", "constituency", "rally", "debate", "session", "candidate", "ticket",
-            "मतदान", "उपचुनाव", "अभियान", "घोषणापत्र", "निर्वाचन क्षेत्र", "रैली", "बहस", "अधिवेशन", "उम्मीदवार", "टिकट",
-            "ভোট", "উপনির্বাচন", "প্রচার", "ঘোষণাপত্র", "নির্বাচনী এলাকা", "র‍্যালি", "বিতর্ক", "সেশন", "প্রার্থী", "টিকিট",
-            "ಮತದಾನ", "ಪೂರ್ವಚುನಾವಣೆ", "ಪ್ರಚಾರ", "ಘೋಷಣಾ ಪತ್ರ", "ಚುನಾವಣಾ ಶಾಸಕ", "ರ್ಯಾಲಿ", "ಚರ್ಚೆ", "ಅಧಿವೇಶನ", "ಅಭ್ಯರ್ಥಿ", "ಟಿಕೆಟ್"
-        ],
-        "low_priority": [
-            "party", "coalition", "symbol", "alliance", "seat", "opposition", "leader", "politician", "legislation", "policy",
-            "दल", "गठबंधन", "चिह्न", "सहयोग", "सीट", "विपक्ष", "नेता", "राजनेता", "कानून", "नीति",
-            "দল", "জোট", "চিহ্ন", "জোট", "আসন", "বিরোধী", "নেতা", "রাজনীতিবিদ", "আইন", "নীতিমালা",
-            "ಪಕ್ಷ", "ಮಿತ್ರಗೋಷ್ಠಿ", "ಚಿಹ್ನೆ", "ಸಂಘ", "ಆಸನ", "ವಿರೋಧ ಪಕ್ಷ", "ನಾಯಕ", "ರಾಜಕೀಯ ನಾಯಕ", "ಕಾನೂನು", "ನೀತಿ"
-        ]
-    },
-    "defence": {
-        "high_priority": [
-            "defence", "defense", "army", "military", "navy", "air force", "soldier", "border", "security", "bsf", "afspa", "weapon", "missile", "iaf", "signal corps", "bofors", "drdo", "mod", "lca", "balakot", "indo-pak", "war", "operation", "airstrike", "civil defence", "arsenal",
-            "रक्षा", "सेना", "फौज", "नौसेना", "वायुसेना", "सैनिक", "सीमा", "बीएसएफ", "हथियार", "मिसाइल", "डीआरडीओ", "ऑपरेशन", "अफस्पा", "युद्ध",
-            "প্রতিরক্ষা", "সেনা", "নৌবাহিনী", "বায়ুসেনা", "সেনা", "সীমান্ত", "বিএসএফ", "অস্ত্র", "মিসাইল", "ডিআরডিও", "অপারেশন", "অ্যাফস্পা", "যুদ্ধ",
-            "ರಕ್ಷಣೆ", "ಸೇನಾ", "ನೇವಿ", "ವಾಯುಪಡೆ", "ಸೈನಿಕ", "ಸೀಮೆ", "ಬಿಎಸ್ಎಫ್", "ಆಯುಧ", "ಮಿಸೈಲ್", "ಡಿಆರ್‌ಡಿಒ", "ಆಪರೇಷನ್", "ಎಎಫ್‌ಎಸ್ಪಿಎ", "ಯುದ್ಧ"
-        ],
-        "medium_priority": [
-            "brigade", "commander", "training", "terror", "terrorism", "border security", "militant", "jawan", "battalion", "tank", "submarine", "kargil",
-            "ब्रिगेड", "कमांडर", "प्रशिक्षण", "आतंक", "सीमा सुरक्षा", "दस्ता", "जवान", "बटालियन", "टैंक", "पनडुब्बी", "कारगिल",
-            "ব্রিগেড", "কমান্ডার", "প্রশিক্ষণ", "সন্ত্রাস", "সীমান্ত সুরক্ষা", "বাহিনী", "জওয়ান", "ব্যাটালিয়ন", "ট্যাঙ্ক", "সাবমেরিন", "কারগিল",
-            "ಬ್ರಿಗೇಡ್", "ಕಮಾಂಡರ್", "ತರಬೇತಿ", "ಭಯೋತ್ಪಾದನೆ", "ಸೀಮಾ ಭದ್ರತೆ", "ಯೋಧ", "ಪಟಾಲಿಯನ್", "ಟ್ಯಾಂಕ್", "ಸಬ್ಮರಿನ್", "ಕಾರ್ಗಿಲ್"
-        ],
-        "low_priority": [
-            "battle", "encounter", "rifle", "gun", "grenade", "parade", "martyr", "border area", "regiment", "salute", "patrol",
-            "लड़ाई", "मुठभेड़", "राइफल", "बंदूक", "ग्रेनेड", "परेड", "शहीद", "सीमा क्षेत्र", "रेजिमेंट", "सलामी", "गश्त",
-            "লড়াই", "এনকাউন্টার", "রাইফেল", "বন্দুক", "গ্রেনেড", "প্যারেড", "শহীদ", "সীমান্ত অঞ্চল", "রেজিমেন্ট", "সেলাম", "পেট্রলিং",
-            "ಯುದ್ಧ", "ಎನ್‌ಕೌಂಟರ್", "ರೈಫಲ್", "ಗನ್", "ಗ್ರೆನೇಡ್", "ಪ್ಯಾರೆಡ್", "ಹುತಾತ್ಮ", "ಸೀಮಾ ಪ್ರದೇಶ", "ರೆಜಿಮೆಂಟ್", "ವಂದನೆ", "ಪೆಟ್ರೊಲಿಂಗ್"
-        ]
-    }
+  "health": {
+    "high_priority": [
+      "ministry of health", "mohfw", "health ministry", "icmr", "aiims", "nhm", "national health mission",
+      "pmjay", "ayushman bharat", "jan aushadhi", "nhp", "nha", "ayush", "tb elimination",
+      "nipah", "zika", "malaria", "vector-borne", "vaccination drive", "immunisation", "health policy"
+    ],
+    "medium_priority": [
+      "phc", "chc", "primary health centre", "community health centre",
+      "telemedicine", "e-sanjeevani", "wellness centre", "public health", "epidemic", "outbreak"
+    ],
+    "low_priority": [
+      "doctor", "nurse", "hospital", "clinic", "patients", "healthcare"
+    ]
+  },
+  "finance": {
+    "high_priority": [
+      "ministry of finance", "mof", "cbdt", "cbic", "rbi", "sebi", "dipam", "pfrda",
+      "union budget", "finance bill", "frbm", "fiscal deficit", "repo rate", "gst council",
+      "direct tax", "indirect tax", "sovereign bond", "t-bill", "psu disinvestment", "pli outlay"
+    ],
+    "medium_priority": [
+      "income tax", "corporate tax", "mutual fund", "capital gains", "customs duty", "excise",
+      "market regulator", "monetary policy", "inflation", "bond yield"
+    ],
+    "low_priority": [
+      "budget", "revenue", "expenditure", "subsidy", "loan", "credit"
+    ]
+  },
+  "education": {
+    "high_priority": [
+      "ministry of education", "moe", "ugc", "aicte", "ncert", "nep 2020", "nirf",
+      "swayam", "pm shri", "kv", "jnv", "cuet", "jee", "neet", "scholarship"
+    ],
+    "medium_priority": [
+      "naac", "accreditation", "autonomous college", "school reform", "curriculum"
+    ],
+    "low_priority": [
+      "school", "college", "university", "campus", "students", "teachers"
+    ]
+  },
+  "sports": {
+    "high_priority": [
+      "ministry of youth affairs and sports", "sports ministry", "sai", "khelo india", "tops",
+      "asian games", "commonwealth games", "paralympics", "national games", "sports authority of india"
+    ],
+    "medium_priority": [
+      "national camp", "high performance centre", "sports federation"
+    ],
+    "low_priority": [
+      "tournament", "league", "coach", "athlete", "stadium"
+    ]
+  },
+  "defence": {
+    "high_priority": [
+      "ministry of defence", "mod", "cds", "ids", "theatre command", "agnipath", "agniveer",
+      "drdo", "iaf", "indian air force", "indian navy", "indian army",
+      "hal tejas", "rafale", "s-400", "brahmos", "pinaka", "lch prachand",
+      "ins vikrant", "ins arihant", "lac", "loc", "sff", "northern command", "siachen"
+    ],
+    "medium_priority": [
+      "make in india defence", "aon", "rfp", "induction", "procurement", "airstrike", "border security"
+    ],
+    "low_priority": [
+      "soldier", "weapon", "missile", "war", "operation"
+    ]
+  },
+  "agriculture": {
+    "high_priority": [
+      "ministry of agriculture", "farmer welfare", "pm kisan", "msp", "mandi", "fpo",
+      "crop insurance", "pmfby", "fci", "fertilizer subsidy"
+    ],
+    "medium_priority": [
+      "kharif", "rabi", "procurement", "agri credit", "soil health card"
+    ],
+    "low_priority": [
+      "farm", "agriculture", "harvest", "crop", "paddy", "wheat"
+    ]
+  },
+  "railways": {
+    "high_priority": [
+      "ministry of railways", "railway board", "indian railways", "gatishakti", "vande bharat",
+      "amrit bharat station", "station redevelopment", "dedicated freight corridor", "dfccil"
+    ],
+    "medium_priority": [
+      "locomotive", "coach factory", "loco shed", "signal upgrade"
+    ],
+    "low_priority": [
+      "train", "station", "platform", "track"
+    ]
+  },
+  "power": {
+    "high_priority": [
+      "ministry of power", "cea", "ntpc", "nhpc", "pfc", "rggvy", "rdss", "uday",
+      "smart meter", "discom reform", "peak load", "renewable integration"
+    ],
+    "medium_priority": [
+      "tariff order", "distribution loss", "grid stability", "td losses"
+    ],
+    "low_priority": [
+      "electricity", "power plant", "substation", "transmission line"
+    ]
+  },
+  "environment": {
+    "high_priority": [
+      "moefcc", "ministry of environment", "environment ministry", "forest clearance", "wildlife clearance",
+      "eia", "camppa", "project elephant", "ntca", "pollution control", "cpcb"
+    ],
+    "medium_priority": [
+      "air quality", "aqi", "afforestation", "wetland", "biodiversity"
+    ],
+    "low_priority": [
+      "forest", "wildlife", "sanctuary", "river", "lake"
+    ]
+  },
+  "law": {
+    "high_priority": [
+      "ministry of law and justice", "law ministry", "dola", "legislative department", "legal affairs",
+      "attorney general", "solicitor general", "bill", "ordinance", "act", "notification", "gazette",
+      "constitution", "article", "supreme court", "sc verdict", "high court", "tribunal",
+      "public interest litigation", "pil", "criminal procedure", "crpc", "ipc", "bns", "bnss", "bsa",
+      "bail", "habeas corpus", "law commission"
+    ],
+    "medium_priority": [
+      "judicial reform", "case backlog", "e-courts", "advocate", "bar council", "mediation", "arbitration"
+    ],
+    "low_priority": [
+      "litigation", "hearing", "bench", "verdict", "precedent", "appeal"
+    ]
+  },
+  "technology": {
+    "high_priority": [
+      "meity", "ministry of electronics and information technology", "digital india", "aadhaar", "uidai",
+      "digilocker", "india stack", "upi", "ondc", "npci", "cert-in", "nic", "stpi", "negd",
+      "semiconductor", "chip fab", "pli for it hardware", "ai mission", "cloud", "govcloud",
+      "data centre", "dpdp", "digital personal data protection", "cybersecurity", "soc", "5g", "bharatnet"
+    ],
+    "medium_priority": [
+      "open source", "e-governance", "interoperability", "api", "hackathon", "startup india", "deep-tech",
+      "quantum mission", "digital public infrastructure", "dpis"
+    ],
+    "low_priority": [
+      "software", "hardware", "coding", "app", "portal", "website", "tech startup"
+    ]
+  }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-news_scraper_ml.py
-Enhanced with proper ML models for ministry classification and sentiment analysis
+news_scraper.py
+Full corrected file — scrapes news, saves local JSON, upserts into Supabase,
+and exposes Flask API endpoints for fetching, searching and health checks.
 """
 
 import os
@@ -15,6 +16,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    # We won't crash here, but warn — backend will still run (useful for local dev without supabase)
     print("⚠️ WARNING: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in environment.")
     print("Supabase upserts will fail until keys are provided.")
     supabase = None
@@ -23,12 +25,16 @@ else:
 
 
 def save_to_supabase(article_dict):
-    """Inserts/upserts one scraped article into Supabase database."""
+    """
+    Inserts/upserts one scraped article into Supabase database.
+    article_dict must match the table columns.
+    """
     if supabase is None:
         print("⚠️ Supabase client not initialized. Skipping upsert.")
         return None
 
     try:
+        # Ensure types: lists and dicts are properly passed
         payload = {
             "id": article_dict.get("id"),
             "source_type": article_dict.get("source_type"),
@@ -49,14 +55,48 @@ def save_to_supabase(article_dict):
         }
 
         res = supabase.table("news_articles").upsert(payload).execute()
+        # Optionally, you can inspect res to ensure success
+        if hasattr(res, "status_code"):
+            # some versions return different response shapes; be permissive
+            pass
         print("✅ Saved to Supabase:", payload.get("title", "")[:120])
         return res
     except Exception as e:
         print("❌ Supabase insert error:", e)
         return None
+    
+def save_youtube_to_supabase(video_dict):
+    """
+    Inserts/upserts scraped YouTube data into Supabase youtube_videos table
+    """
+    if supabase is None:
+        print("⚠️ Supabase not initialized, skipping YouTube insert")
+        return None
+    try:
+        res = supabase.table("youtube_videos").upsert(video_dict).execute()
+        print("✅ YouTube video saved:", video_dict.get("title"))
+        return res
+    except Exception as e:
+        print("❌ YouTube insert error:", e)
 
 
-# ------------------- Standard imports -------------------
+def save_enews_image_to_supabase(image_dict):
+    """
+    Inserts image analysis result into enews_image_analysis table
+    """
+    if supabase is None:
+        print("⚠️ Supabase not initialized, skipping E-news image insert")
+        return None
+    try:
+        res = supabase.table("enews_image_analysis").insert(image_dict).execute()
+        print("✅ E-news image analysis saved:", image_dict.get("image_name"))
+        return res
+    except Exception as e:
+        print("❌ E-news image insert error:", e)
+
+
+
+# ------------------- standard imports for the rest of the scraper -------------------
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -71,17 +111,6 @@ import hashlib
 import random
 from collections import defaultdict
 from pathlib import Path
-import threading
-
-# ML imports
-from transformers import (
-    pipeline, 
-    AutoTokenizer, 
-    AutoModelForSequenceClassification
-)
-import torch
-import warnings
-warnings.filterwarnings('ignore')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -94,141 +123,7 @@ CORS(app)
 DATA_DIR = Path("news_data")
 DATA_DIR.mkdir(exist_ok=True)
 
-# ------------------- ML Models Initialization -------------------
-
-class MLModels:
-    """Initialize and manage ML models for classification"""
-    
-    def __init__(self):
-        self.device = 0 if torch.cuda.is_available() else -1
-        print(f"🤖 Initializing ML models on {'GPU' if self.device == 0 else 'CPU'}...")
-        
-        # 1. Sentiment Analysis - Using multilingual model
-        try:
-            print("Loading sentiment analysis model...")
-            model_name = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
-            self.sentiment_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            
-            if self.device == 0:
-                self.sentiment_model = self.sentiment_model.cuda()
-            
-            self.sentiment_model.eval()
-            print("✅ Sentiment model loaded successfully")
-        except Exception as e:
-            print(f"⚠️ Error loading sentiment model: {e}")
-            self.sentiment_model = None
-            self.sentiment_tokenizer = None
-        
-        # 2. Zero-shot classification for ministries
-        try:
-            print("Loading zero-shot classification model...")
-            self.ministry_classifier = pipeline(
-                "zero-shot-classification",
-                model="facebook/bart-large-mnli",
-                device=self.device
-            )
-            print("✅ Ministry classifier loaded successfully")
-        except Exception as e:
-            print(f"⚠️ Error loading ministry classifier: {e}")
-            self.ministry_classifier = None
-        
-        # Ministry labels for classification
-        self.ministry_labels = [
-            "health and medical services",
-            "finance and economy", 
-            "education and schools",
-            "sports and games",
-            "international affairs and diplomacy",
-            "agriculture and farming",
-            "politics and government",
-            "defence and military",
-            "general news"
-        ]
-
-        
-        self.ministry_mapping = {
-            "health and medical services": "health",
-            "finance and economy": "finance",
-            "education and schools": "education",
-            "sports and games": "sports",
-            "international affairs and diplomacy": "international_affairs",
-            "agriculture and farming": "agriculture",
-            "politics and government": "politics",
-            "defence and military": "defence",
-            "general news": "general"
-        }
-    
-    def analyze_sentiment(self, text):
-        """Better sentiment scoring: returns positive/negative/neutral properly"""
-
-        if not text or len(text) < 5:
-            return 0.0, "neutral"
-
-        if self.sentiment_model is None:
-            return 0.0, "neutral"
-
-        try:
-            inputs = self.sentiment_tokenizer(
-                text[:512], return_tensors="pt", truncation=True, padding=True
-            )
-            if self.device == 0:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-
-            with torch.no_grad():
-                outputs = self.sentiment_model(**inputs)
-                scores = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
-
-            negative, neutral, positive = scores.tolist()
-            sentiment_score = positive - negative
-
-            # 🔥 Improved confidence thresholds
-            if positive > negative and positive > 0.55:
-                label = "positive"
-            elif negative > positive and negative > 0.55:
-                label = "negative"
-            else:
-                label = "neutral"
-
-            return round(sentiment_score, 3), label
-
-        except Exception as e:
-            logger.error(f"Sentiment error: {e}")
-            return 0.0, "neutral"
-    
-    def classify_ministries(self, title, content):
-        """Return only ONE ministry with highest confidence"""
-
-        if self.ministry_classifier is None:
-            return ["general"], {"general": 1.0}
-
-        try:
-            # Stronger context prompt
-            text = f"News headline: {title}. Article content: {content[:400]}"
-
-            result = self.ministry_classifier(
-                text,
-                candidate_labels=self.ministry_labels,
-                multi_label=False  # 👈 now returns only one main label
-            )
-
-            best_label = result['labels'][0]
-            best_score = result['scores'][0]
-
-            ministry_key = self.ministry_mapping.get(best_label, "general")
-
-            return [ministry_key], {ministry_key: round(best_score, 3)}
-
-        except Exception as e:
-            logger.error(f"Ministry classification error: {e}")
-            return ["general"], {"general": 1.0}
-
-# Initialize ML models globally
-print("🔄 Loading ML models (this may take a minute)...")
-ml_models = MLModels()
-print("✅ ML models ready!\n")
-
-# ------------------- Configuration -------------------
+# ------------------- Configuration: sources, languages, keywords -------------------
 
 NEWS_SOURCES = {
     "hindi": [
@@ -262,13 +157,115 @@ LANGUAGE_MAPPING = {
 
 SUPPORTED_MINISTRIES = [
     "health", "finance", "education", "sports",
-    "international_affairs", "agriculture", "politics", "defence", "general"
+    "international_affairs", "agriculture", "politics", "defence"
 ]
+
+
+def load_keywords():
+    """Load keywords from keywords.json file"""
+    try:
+        keywords_file = Path("keywords.json")
+        if keywords_file.exists():
+            with open(keywords_file, 'r', encoding='utf-8') as f:
+                keywords_data = json.load(f)
+                logger.info(f"Loaded keywords for ministries: {list(keywords_data.keys())}")
+                return keywords_data
+        else:
+            logger.error("keywords.json not found! Please create the file with ministry keywords.")
+            return {}
+    except Exception as e:
+        logger.error(f"Error loading keywords.json: {str(e)}")
+        return {}
+
+
+MINISTRY_KEYWORDS = load_keywords()
+
+PRIORITY_WEIGHTS = {
+    "high_priority": 5,
+    "medium_priority": 3,
+    "low_priority": 1
+}
+
+ENHANCED_SENTIMENT_LEXICONS = {
+    "positive": {
+        "english": [
+            "success", "successful", "achievement", "progress", "improvement", "beneficial",
+            "positive", "growth", "development", "innovation", "launch", "inaugurate",
+            "approved", "accomplished", "advance", "boom", "breakthrough", "celebrate",
+            "efficient", "excellent", "expand", "flourish", "gain", "outstanding",
+            "prosperity", "remarkable", "thrive", "triumph", "upgrade", "victory",
+            "winning", "win", "won", "great", "amazing", "wonderful", "fantastic",
+            "boost", "rise", "increase", "enhance", "strengthen", "support", "benefit",
+            "achieve", "resolve", "solution", "welcome", "praise", "commend", "honor",
+            "milestone", "landmark", "record", "high", "best", "top", "leading"
+        ],
+        "hindi": [
+            "सफल", "सफलता", "प्रगति", "विकास", "लाभकारी", "सकारात्मक", "उन्नति",
+            "नवाचार", "शुभारंभ", "मंजूरी", "उपलब्धि", "वृद्धि", "फायदा", "जीत",
+            "विजय", "समृद्धि", "बेहतर", "श्रेष्ठ", "उत्कृष्ट", "प्रशंसा", "सम्मान",
+            "लाभ", "बढ़ावा", "मजबूत", "सुधार", "हल", "समाधान", "स्वागत", "खुशी",
+            "प्रोत्साहन", "माइलस्टोन", "रिकॉर्ड", "उच्च", "सर्वश्रेष्ठ"
+        ],
+        "bengali": [
+            "সফল", "সাফল্য", "উন্নতি", "উন্নয়ন", "উপকারী", "ইতিবাচক", "অগ্রগতি",
+            "উদ্ভাবন", "অনুমোদন", "অর্জন", "বিজয়", "সমৃদ্ধি", "ভাল", "চমৎকার",
+            "প্রশংসা", "সম্মান", "লাভ", "বৃদ্ধি", "শক্তিশালী", "উন্নতিসাধন",
+            "সমাধান", "স্বাগত", "আনন্দ", "উৎসাহ", "মাইলফলক", "রেকর্ড", "সর্বোচ্চ"
+        ],
+        "kannada": [
+            "ಯಶಸ್ಸು", "ಪ್ರಗತಿ", "ಅಭಿವೃದ್ಧಿ", "ಪ್ರಯೋಜನಕಾರಿ", "ಧನಾತ್ಮಕ",
+            "ನಾವೀನ್ಯತೆ", "ಅನುಮೋದನೆ", "ಸಾಧನೆ", "ಗೆಲುವು", "ಸಮೃದ್ಧಿ", "ಉತ್ತಮ",
+            "ಅದ್ಭುತ", "ಪ್ರಶಂಸೆ", "ಗೌರವ", "ಲಾಭ", "ವೃದ್ಧಿ", "ಬಲಿಷ್ಠ", "ಸುಧಾರಣೆ",
+            "ಪರಿಹಾರ", "ಸ್ವಾಗತ", "ಸಂತೋಷ", "ಪ್ರೋತ್ಸಾಹ", "ಮೈಲಿಗಲ್ಲು", "ದಾಖಲೆ"
+        ]
+    },
+    "negative": {
+        "english": [
+            "crisis", "problem", "issue", "concern", "criticism", "protest", "opposition",
+            "failure", "decline", "decrease", "corruption", "scam", "controversy",
+            "conflict", "disaster", "emergency", "threat", "violence", "terror",
+            "accident", "death", "injury", "damage", "loss", "deficit", "recession",
+            "unemployment", "poverty", "attack", "bomb", "murder", "crime", "criminal",
+            "illegal", "fraud", "scandal", "riot", "strike", "shutdown", "collapse",
+            "reject", "deny", "refuse", "cancel", "suspend", "ban", "warning", "alert",
+            "worst", "terrible", "horrible", "awful", "bad", "poor", "low", "drop", "fall"
+        ],
+        "hindi": [
+            "संकट", "समस्या", "चिंता", "आलोचना", "विरोध", "असफल", "भ्रष्टाचार",
+            "घोटाला", "विवाद", "संघर्ष", "आपातकाल", "हानि", "नुकसान", "गरीबी",
+            "बेरोजगारी", "हमला", "बम", "हत्या", "अपराध", "अवैध", "धोखाधड़ी",
+            "दंगा", "हड़ताल", "बंद", "पतन", "इनकार", "रद्द", "प्रतिबंध", "चेतावनी",
+            "खराब", "गलत", "बुरा", "गिरावट", "कमी", "घटना", "सबसे खराब"
+        ],
+        "bengali": [
+            "সংকট", "সমস্যা", "উদ্বেগ", "সমালোচনা", "বিরোধিতা", "ব্যর্থতা",
+            "দুর্নীতি", "কেলেঙ্কারি", "বিতর্ক", "সংঘর্ষ", "ক্ষতি", "দারিদ্র্য",
+            "বেকারত্ব", "আক্রমণ", "বোমা", "হত্যা", "অপরাধ", "অবৈধ", "প্রতারণা",
+            "দাঙ্গা", "ধর্মঘট", "বন্ধ", "পতন", "প্রত্যাখ্যান", "বাতিল", "নিষেধাজ্ঞা",
+            "খারাপ", "ভুল", "পতন", "কমতি", "সবচেয়ে খারাপ"
+        ],
+        "kannada": [
+            "ಸಂಕಟ", "ಸಮಸ್ಯೆ", "ಚಿಂತೆ", "ಟೀಕೆ", "ವಿರೋಧ", "ವಿಫಲತೆ",
+            "ಭ್ರಷ್ಟಾಚಾರ", "ವಿವಾದ", "ಸಂಘರ್ಷ", "ನಷ್ಟ", "ಬಡತನ", "ನಿರುದ್ಯೋಗ",
+            "ದಾಳಿ", "ಬಾಂಬ್", "ಕೊಲೆ", "ಅಪರಾಧ", "ಅಕ್ರಮ", "ವಂಚನೆ", "ಗಲಭೆ",
+            "ಮುಷ್ಕರ", "ಮುಚ್ಚುವಿಕೆ", "ಪತನ", "ನಿರಾಕರಣೆ", "ರದ್ದು", "ನಿಷೇಧ",
+            "ಕೆಟ್ಟ", "ತಪ್ಪು", "ಕುಸಿತ", "ಕಡಿಮೆ", "ಅತ್ಯಂತ ಕೆಟ್ಟ"
+        ]
+    },
+    "negation_words": [
+        "not", "no", "never", "neither", "none", "nothing", "nowhere", "nobody",
+        "hardly", "scarcely", "barely", "seldom", "rarely",
+        "नहीं", "न", "कभी नहीं", "कोई नहीं", "कुछ नहीं", "मुश्किल से",
+        "না", "নেই", "কখনও না", "কেউ না", "কিছু না", "কদাচিৎ",
+        "ಇಲ್ಲ", "ಎಂದಿಗೂ ಇಲ್ಲ", "ಯಾರೂ ಇಲ್ಲ", "ಏನೂ ಇಲ್ಲ", "ಅಪರೂಪವಾಗಿ"
+    ]
+}
+
 
 # ------------------- Storage and Article model -------------------
 
 class NewsStorage:
-    """Handle local JSON storage for news articles"""
+    """Handle local JSON storage for news articles according to specified schema"""
 
     def __init__(self, data_dir):
         self.data_dir = Path(data_dir)
@@ -292,13 +289,13 @@ class NewsStorage:
         return {"articles": [], "metadata": {"date": datetime.now().strftime('%Y-%m-%d'), "total": 0}}
 
     def save_daily_news(self, articles, date=None):
-        """Save news articles for a specific date"""
+        """Save news articles for a specific date according to schema"""
         filename = self.get_daily_filename(date)
 
         # Load existing data
         existing_data = self.load_daily_news(date)
 
-        # Convert articles and avoid duplicates
+        # Convert articles to schema format and avoid duplicates
         existing_hashes = {article.get('metadata', {}).get('content_hash') for article in existing_data['articles']}
         new_articles = []
 
@@ -313,7 +310,7 @@ class NewsStorage:
         # Combine with existing articles
         all_articles = existing_data['articles'] + new_articles
 
-        # Sort by timestamp
+        # Sort by timestamp (newest first)
         all_articles.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
         # Prepare data to save
@@ -353,48 +350,221 @@ class NewsArticle:
         self.timestamp = datetime.now().isoformat() + "Z"
         self.scrape_time = self.timestamp
 
-        # Generate content hash
+        # Generate content hash first
         self.content_hash = hashlib.md5((title.lower() + content.lower()).encode('utf-8')).hexdigest()
 
-        # Generate unique ID
+        # Generate unique ID using title + url + content to avoid duplicates
         self.id = hashlib.md5((self.title + self.url + self.content_hash).encode('utf-8')).hexdigest()
 
-        # Use ML models for analysis
-        print(f"🔍 Analyzing: {title[:50]}...")
-        self.ministries, self.ministry_scores = ml_models.classify_ministries(title, content)
-        self.sentiment_score, self.sentiment_label = ml_models.analyze_sentiment(f"{title}. {content}")
-        print(f"   └─ Ministries: {self.ministries}, Sentiment: {self.sentiment_label}")
-        
+
+        # Analyze ministries and sentiment with improved algorithms
+        self.ministries, self.ministry_scores = self.improved_analyze_ministries(title, content)
+        self.sentiment_score, self.sentiment_label = self.improved_analyze_sentiment(title, content)
         self.keywords = self.extract_keywords(title, content)
         self.summary = self.generate_summary(title, content)
 
+    def improved_analyze_ministries(self, title, content):
+        """Improved ministry analysis with better keyword matching and scoring"""
+        if not MINISTRY_KEYWORDS:
+            return ["general"], {"general": 1.0}
+
+        # Prepare text for analysis - title gets triple weight
+        full_text = f"{title} {title} {title} {content}".lower()
+        title_text = title.lower()
+        content_text = content.lower()
+
+        ministry_scores = {}
+
+        for ministry, priority_groups in MINISTRY_KEYWORDS.items():
+            if ministry not in SUPPORTED_MINISTRIES:
+                continue
+
+            total_score = 0.0
+            title_matches = 0
+            content_matches = 0
+
+            # Process each priority level
+            for priority_level, keywords in priority_groups.items():
+                weight = PRIORITY_WEIGHTS.get(priority_level, 1)
+
+                for keyword in keywords:
+                    keyword_lower = keyword.lower().strip()
+                    if len(keyword_lower) < 2:  # Skip very short keywords
+                        continue
+
+                    # Count occurrences in title and content separately
+                    title_count = title_text.count(keyword_lower)
+                    content_count = content_text.count(keyword_lower)
+
+                    if title_count > 0:
+                        # Title matches get much higher weight
+                        title_score = title_count * weight * 10
+                        total_score += title_score
+                        title_matches += title_count
+
+                    if content_count > 0:
+                        # Content matches get standard weight
+                        content_score = content_count * weight * 2
+                        total_score += content_score
+                        content_matches += content_count
+
+            # Calculate normalized score with enhanced formula
+            if total_score > 0:
+                # Base score calculation
+                text_length = max(len(full_text.split()), 50)  # Minimum 50 words for normalization
+                base_score = total_score / text_length
+
+                # Boost score based on title matches (title matches are very important)
+                title_boost = min(title_matches * 0.5, 0.8)  # Max 80% boost from title
+                content_boost = min(content_matches * 0.1, 0.2)  # Max 20% boost from content
+
+                # Final normalized score
+                normalized_score = min((base_score + title_boost + content_boost) * 10, 1.0)
+
+                if normalized_score > 0.05:  # Lower threshold for inclusion
+                    ministry_scores[ministry] = round(normalized_score, 3)
+
+        # Determine relevant ministries with adjusted threshold
+        relevant_ministries = [
+            ministry for ministry, score in ministry_scores.items()
+            if score > 0.05  # Lowered from 0.1 to 0.05
+        ]
+
+        if not relevant_ministries:
+            return ["general"], {"general": 1.0}
+
+        # Sort by score and take top 3
+        sorted_ministries = sorted(relevant_ministries, key=lambda x: ministry_scores[x], reverse=True)[:3]
+        return sorted_ministries, ministry_scores
+
+    def improved_analyze_sentiment(self, title, content):
+        """Improved sentiment analysis with context awareness and negation handling"""
+        # Combine title and content with title having higher weight
+        full_text = f"{title} {title} {content}".lower()
+        words = full_text.split()
+
+        positive_score = 0.0
+        negative_score = 0.0
+
+        # Get all sentiment words
+        all_positive_words = []
+        all_negative_words = []
+
+        for lang_words in ENHANCED_SENTIMENT_LEXICONS["positive"].values():
+            all_positive_words.extend([w.lower() for w in lang_words])
+
+        for lang_words in ENHANCED_SENTIMENT_LEXICONS["negative"].values():
+            all_negative_words.extend([w.lower() for w in lang_words])
+
+        # Remove duplicates
+        all_positive_words = list(set(all_positive_words))
+        all_negative_words = list(set(all_negative_words))
+        negation_words = [w.lower() for w in ENHANCED_SENTIMENT_LEXICONS["negation_words"]]
+
+        # Analyze each word with context
+        for i, word in enumerate(words):
+            word_clean = re.sub(r'[^\w]', '', word).lower()
+
+            # Check for negation in previous 2 words
+            is_negated = False
+            for j in range(max(0, i-4), i):
+                prev_word = re.sub(r'[^\w]', '', words[j]).lower()
+                if prev_word in negation_words:
+                    is_negated = True
+                    break
+
+            # Score positive words
+            if word_clean in all_positive_words:
+                word_score = 1.0
+
+                # Boost score if word appears in title
+                if word_clean in title.lower():
+                    word_score *= 2.0
+
+                # Check for word variations and partial matches
+                for pos_word in all_positive_words:
+                    if len(pos_word) > 4 and pos_word in word_clean and pos_word != word_clean:
+                        word_score *= 1.2
+                        break
+
+                if is_negated:
+                    negative_score += word_score * 0.8  # Negated positive becomes negative
+                else:
+                    positive_score += word_score
+
+            # Score negative words
+            elif word_clean in all_negative_words:
+                word_score = 1.0
+
+                # Boost score if word appears in title
+                if word_clean in title.lower():
+                    word_score *= 2.0
+
+                # Check for word variations and partial matches
+                for neg_word in all_negative_words:
+                    if len(neg_word) > 4 and neg_word in word_clean and neg_word != word_clean:
+                        word_score *= 1.2
+                        break
+
+                if is_negated:
+                    positive_score += word_score * 0.5  # Negated negative becomes slightly positive
+                else:
+                    negative_score += word_score
+
+        # Calculate final sentiment score
+        total_sentiment_words = positive_score + negative_score
+
+        if total_sentiment_words == 0:
+            sentiment_score = 0.0
+            sentiment_label = "neutral"
+        else:
+            # Normalize to -1 to +1 range
+            sentiment_score = (positive_score - negative_score) / total_sentiment_words
+
+            # Apply more nuanced thresholds
+            if sentiment_score > 0.1:
+                sentiment_label = "positive"
+            elif sentiment_score < -0.1:
+                sentiment_label = "negative"
+            else:
+                sentiment_label = "neutral"
+
+        return round(sentiment_score, 3), sentiment_label
+
     def extract_keywords(self, title, content):
-        """Extract keywords from title and content"""
+        """Extract keywords from title and content with improved filtering"""
         text = f"{title} {content}".lower()
 
-        # Enhanced stop words
+        # Enhanced stop words for all languages
         stop_words = {
             'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
             'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'been', 'have', 'has', 'had',
             'will', 'would', 'could', 'should', 'may', 'might', 'can', 'do', 'does', 'did', 'get', 'got',
+            # Hindi stop words
             'का', 'की', 'के', 'में', 'को', 'से', 'और', 'या', 'है', 'हैं', 'था', 'थे', 'यह', 'वह',
+            'इस', 'उस', 'एक', 'दो', 'तीन', 'कर', 'किया', 'करने', 'होगा', 'हो', 'गया', 'गई',
+            # Bengali stop words
             'এর', 'এই', 'ও', 'ছিল', 'আছে', 'করে', 'হয়', 'থেকে', 'দিয়ে', 'তার', 'যে', 'কি',
-            'ಇದು', 'ಆದ', 'ಮತ್ತು', 'ಅಥವಾ', 'ಇದೆ', 'ಆಗಿದೆ', 'ಮಾಡಿ', 'ಆ', 'ಈ', 'ಒಂದು'
+            'একটি', 'দুটি', 'তিনটি', 'করা', 'করেছে', 'হবে', 'হলো', 'গেছে', 'এসেছে',
+            # Kannada stop words
+            'ಇದು', 'ಆದ', 'ಮತ್ತು', 'ಅಥವಾ', 'ಇದೆ', 'ಆಗಿದೆ', 'ಮಾಡಿ', 'ಆ', 'ಈ', 'ಒಂದು',
+            'ಎರಡು', 'ಮೂರು', 'ಮಾಡುವ', 'ಮಾಡಿದ', 'ಆಗುವ', 'ಆಯಿತು', 'ಬಂದಿದೆ'
         }
 
-        # Extract words
+        # Extract words that are 3+ characters and not stop words
         words = re.findall(r'\b\w{3,}\b', text)
         keywords = [word for word in words if word not in stop_words and len(word) > 2]
 
-        # Get top keywords by frequency
+        # Get top keywords by frequency, prioritizing title words
         word_freq = defaultdict(float)
         title_words = set(re.findall(r'\b\w{3,}\b', title.lower()))
 
         for word in keywords:
+            # Title words get higher weight
             weight = 3.0 if word in title_words else 1.0
             word_freq[word] += weight
 
-        # Filter common uninformative words
+        # Filter out very common but uninformative words
         common_uninformative = {'news', 'said', 'today', 'new', 'also', 'more', 'time', 'year', 'years'}
         word_freq = {word: freq for word, freq in word_freq.items() if word not in common_uninformative}
 
@@ -407,7 +577,7 @@ class NewsArticle:
         if not content or len(content) < 100:
             return title[:max_length]
 
-        # Simple extractive summarization
+        # Simple extractive summarization - take first few sentences
         sentences = re.split(r'[।।\.\!\?]+', content)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
 
@@ -415,7 +585,7 @@ class NewsArticle:
             return title[:max_length]
 
         summary = title + ". "
-        for sentence in sentences[:2]:
+        for sentence in sentences[:2]:  # Take first 2 sentences
             if len(summary + sentence) < max_length:
                 summary += sentence + ". "
             else:
@@ -424,7 +594,7 @@ class NewsArticle:
         return summary.strip()
 
     def to_schema_dict(self):
-        """Convert to JSON schema format"""
+        """Convert to the specified JSON schema format"""
         return {
             "id": self.id,
             "source_type": "web_scraper",
@@ -452,14 +622,14 @@ class NewsArticle:
 class NewsScraper:
     def __init__(self):
         user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         ]
 
         self.headers = {
             'User-Agent': random.choice(user_agents),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
@@ -472,8 +642,15 @@ class NewsScraper:
         """Extract articles from webpage"""
         articles = []
         selectors = [
-            'article', '[class*="story"]', '[class*="article"]', '[class*="news"]',
-            '[class*="post"]', 'h1, h2, h3, h4', 'a[title]', '[class*="headline"]'
+            'article',
+            '[class*="story"]',
+            '[class*="article"]',
+            '[class*="news"]',
+            '[class*="post"]',
+            'h1, h2, h3, h4',
+            'a[title]',
+            '[class*="headline"]',
+            '[class*="title"]'
         ]
 
         found_titles = set()
@@ -543,10 +720,12 @@ class NewsScraper:
             title_elem = element.find(['h1', 'h2', 'h3', 'h4', 'h5']) or element
             title = title_elem.get_text(strip=True)
 
+        # Clean title
         title = re.sub(r'\s+', ' ', title).strip()
         title = re.sub(r'^[^a-zA-Z\u0900-\u097F\u0980-\u09FF\u0C80-\u0CFF]*', '', title)
 
-        skip_patterns = ['advertisement', 'sponsored', 'live:', 'watch:', 'video:', 'photo:']
+        # Skip unwanted titles
+        skip_patterns = ['advertisement', 'sponsored', 'live:', 'watch:', 'video:', 'photo:', 'gallery:']
         if any(skip in title.lower() for skip in skip_patterns):
             return None
 
@@ -556,15 +735,17 @@ class NewsScraper:
         """Extract content from element"""
         content = ""
 
+        # Look for content in parent elements
         parent = element.parent
         if parent:
             desc_elem = parent.find(['p', 'div', 'span'],
-                                   class_=re.compile(r'(summary|excerpt|desc|intro|lead)', re.I))
+                                   class_=re.compile(r'(summary|excerpt|desc|intro|lead|content|text)', re.I))
             if desc_elem:
                 desc_text = desc_elem.get_text(strip=True)
                 if len(desc_text) > 50:
                     content = desc_text
 
+        # Look for following paragraphs
         if not content and element.name in ['h1', 'h2', 'h3', 'h4', 'h5']:
             paragraphs = []
             for next_elem in element.find_next_siblings(['p', 'div'], limit=3):
@@ -574,6 +755,7 @@ class NewsScraper:
             if paragraphs:
                 content = ' '.join(paragraphs)
 
+        # Clean content
         if content:
             content = re.sub(r'\s+', ' ', content).strip()
             if len(content) > 800:
@@ -600,7 +782,11 @@ class NewsScraper:
 
     def extract_author(self, element):
         """Extract author from element"""
-        author_selectors = ['[class*="author"]', '[class*="byline"]', '[class*="writer"]']
+        author_selectors = [
+            '[class*="author"]',
+            '[class*="byline"]',
+            '[class*="writer"]'
+        ]
 
         for selector in author_selectors:
             author_elem = element.find(selector) or (element.parent and element.parent.find(selector))
@@ -613,7 +799,11 @@ class NewsScraper:
 
     def extract_section(self, element):
         """Extract website section from element"""
-        section_selectors = ['[class*="section"]', '[class*="category"]', '[class*="topic"]']
+        section_selectors = [
+            '[class*="section"]',
+            '[class*="category"]',
+            '[class*="topic"]'
+        ]
 
         for selector in section_selectors:
             section_elem = element.find(selector) or (element.parent and element.parent.find(selector))
@@ -637,6 +827,7 @@ class NewsScraper:
 
                 soup = BeautifulSoup(response.content, 'html.parser')
 
+                # Remove unwanted elements
                 for unwanted in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
                     unwanted.decompose()
 
@@ -645,6 +836,7 @@ class NewsScraper:
                 if articles:
                     saved_count = self.storage.save_daily_news(articles)
 
+                    # ---------- NEW: Save each article to Supabase ----------
                     for article in articles:
                         try:
                             article_dict = article.to_schema_dict()
@@ -652,7 +844,7 @@ class NewsScraper:
                         except Exception as e:
                             logger.warning(f"Failed to save article to Supabase: {e}")
 
-                    logger.info(f"Successfully scraped {len(articles)} articles from {source_info['name']}")
+                    logger.info(f"Successfully scraped {len(articles)} articles from {source_info['name']}, saved {saved_count} new ones")
                     return articles
                 else:
                     logger.warning(f"No articles found for {source_info['name']}")
@@ -678,7 +870,7 @@ class NewsScraper:
                 try:
                     articles = self.scrape_source(source, lang)
                     all_articles.extend(articles)
-                    time.sleep(2)
+                    time.sleep(2)  # Be respectful to servers
                 except Exception as e:
                     logger.error(f"Error scraping {source['name']}: {str(e)}")
                     continue
@@ -689,17 +881,19 @@ class NewsScraper:
 # Initialize scraper
 scraper = NewsScraper()
 
-# ------------------- Flask API Endpoints -------------------
+# ------------------- Flask API Endpoints (as requested) -------------------
 
 @app.route('/api/news', methods=['GET'])
 def get_news():
-    """Get news articles with filtering"""
+    """Get news articles with filtering options"""
     try:
         language = request.args.get('language', None)
         ministry = request.args.get('ministry', None)
         date_str = request.args.get('date', None)
         fresh = request.args.get('fresh', 'true').lower() == 'true'
 
+
+        # Parse date
         date = None
         if date_str:
             try:
@@ -707,10 +901,11 @@ def get_news():
             except ValueError:
                 return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
-        # Get articles from Supabase
+        # Get articles (always scrape fresh)
         from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
         three_hours_ago = datetime.now(ZoneInfo("Asia/Kolkata")) - timedelta(hours=3)
+
 
         query = (
             supabase.table("news_articles")
@@ -720,6 +915,8 @@ def get_news():
 
         data = query.execute()
         articles_data = data.data or []
+
+
 
         # Filter by ministry if specified
         if ministry and ministry != 'all':
@@ -795,8 +992,13 @@ def get_ministries():
     """Get supported ministries"""
     ministry_info = {}
     for ministry in SUPPORTED_MINISTRIES:
+        keyword_count = 0
+        if ministry in MINISTRY_KEYWORDS:
+            keyword_count = sum(len(keywords) for keywords in MINISTRY_KEYWORDS[ministry].values())
+
         ministry_info[ministry] = {
-            "name": ministry.replace('_', ' ').title()
+            "name": ministry.replace('_', ' ').title(),
+            "keywords_count": keyword_count
         }
 
     return jsonify({
@@ -826,6 +1028,7 @@ def get_stats():
             "daily_counts": []
         }
 
+        # Collect stats from last N days
         for i in range(days):
             date = datetime.now() - timedelta(days=i)
             daily_data = scraper.storage.load_daily_news(date)
@@ -838,19 +1041,24 @@ def get_stats():
             })
 
             for article in daily_data['articles']:
+                # Language stats
                 language = article.get('language', 'Unknown')
                 stats["by_language"][language] += 1
 
+                # Ministry stats
                 ministries = article.get('ministries', ['general'])
                 for ministry in ministries:
                     stats["by_ministry"][ministry] += 1
 
+                # Source stats
                 source = article.get('source_name', 'Unknown')
                 stats["by_source"][source] += 1
 
+                # Sentiment stats
                 sentiment = article.get('sentiment_label', 'neutral')
                 stats["by_sentiment"][sentiment] += 1
 
+        # Convert defaultdicts to regular dicts
         stats["by_language"] = dict(stats["by_language"])
         stats["by_ministry"] = dict(stats["by_ministry"])
         stats["by_source"] = dict(stats["by_source"])
@@ -872,7 +1080,7 @@ def get_stats():
 
 @app.route('/api/search', methods=['GET'])
 def search_articles():
-    """Search articles by keyword"""
+    """Search articles by keyword, ministry, or other criteria"""
     try:
         query = request.args.get('q', '').lower()
         language = request.args.get('language', None)
@@ -885,11 +1093,13 @@ def search_articles():
 
         matching_articles = []
 
+        # Search through last N days
         for i in range(days):
             date = datetime.now() - timedelta(days=i)
             daily_data = scraper.storage.load_daily_news(date)
 
             for article in daily_data['articles']:
+                # Check if query matches title, content, or keywords
                 title = article.get('title', '').lower()
                 content = article.get('content', '').lower()
                 keywords = [k.lower() for k in article.get('keywords', [])]
@@ -897,6 +1107,7 @@ def search_articles():
                 if (query in title or query in content or
                         any(query in keyword for keyword in keywords)):
 
+                    # Apply filters
                     if language and article.get('language', '').lower() != LANGUAGE_MAPPING.get(language, language).lower():
                         continue
 
@@ -908,18 +1119,22 @@ def search_articles():
 
                     matching_articles.append(article)
 
+        # Sort by relevance (simple scoring based on query occurrence)
         def relevance_score(article):
             score = 0
             title = article.get('title', '').lower()
             content = article.get('content', '').lower()
+
+            # Title matches are more important
             score += title.count(query) * 3
             score += content.count(query) * 1
+
             return score
 
         matching_articles.sort(key=relevance_score, reverse=True)
 
         return jsonify({
-            "articles": matching_articles[:50],
+            "articles": matching_articles[:50],  # Limit results
             "total": len(matching_articles),
             "query": query,
             "filters": {
@@ -939,27 +1154,51 @@ def search_articles():
         }), 500
 
 
+@app.route('/api/reload-keywords', methods=['POST'])
+def reload_keywords():
+    """Reload keywords from keywords.json"""
+    global MINISTRY_KEYWORDS
+    try:
+        new_keywords = load_keywords()
+        if new_keywords:
+            MINISTRY_KEYWORDS = new_keywords
+            return jsonify({
+                "message": "Keywords reloaded successfully",
+                "ministries": list(MINISTRY_KEYWORDS.keys()),
+                "total_ministries": len(MINISTRY_KEYWORDS),
+                "timestamp": datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                "error": "Failed to load keywords",
+                "message": "Please check keywords.json file"
+            }), 400
+    except Exception as e:
+        logger.error(f"Error reloading keywords: {str(e)}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e)
+        }), 500
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "4.0 - Transformer-based ML Multi-language Government News Scraper",
+        "version": "2.1 - Improved Multi-language Government News Scraper",
         "features": {
             "supported_languages": list(NEWS_SOURCES.keys()),
             "supported_ministries": SUPPORTED_MINISTRIES,
-            "ml_sentiment_analysis": ml_models.sentiment_model is not None,
-            "ml_ministry_classification": ml_models.ministry_classifier is not None,
+            "keywords_loaded": bool(MINISTRY_KEYWORDS),
             "local_json_storage": True,
-            "supabase_sync": supabase is not None,
+            "improved_sentiment_analysis": True,
+            "enhanced_ministry_categorization": True,
             "keyword_extraction": True,
-            "auto_summarization": True
-        },
-        "ml_models": {
-            "sentiment_model": "cardiffnlp/twitter-xlm-roberta-base-sentiment",
-            "ministry_classifier": "facebook/bart-large-mnli",
-            "device": "GPU" if ml_models.device == 0 else "CPU"
+            "auto_summarization": True,
+            "negation_handling": True,
+            "multilingual_sentiment": True
         },
         "storage": {
             "directory": str(scraper.storage.data_dir),
@@ -974,7 +1213,7 @@ def export_data():
     try:
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
-        format_type = request.args.get('format', 'json')
+        format_type = request.args.get('format', 'json')  # json or csv
 
         if not start_date_str or not end_date_str:
             return jsonify({"error": "start_date and end_date parameters are required"}), 400
@@ -1007,6 +1246,7 @@ def export_data():
                 "export_timestamp": datetime.now().isoformat()
             })
 
+        # For other formats, you could implement CSV export here
         return jsonify({"error": "Only JSON format is currently supported"}), 400
 
     except Exception as e:
@@ -1016,22 +1256,26 @@ def export_data():
             "message": str(e)
         }), 500
 
+import threading
 
 def auto_scrape():
-    """Auto scrape every 1 minute"""
     while True:
         print("\n⏳ Auto scraping triggered (every 1 min)...")
         scraper.scrape_all_sources()
         print("✅ Auto scrape cycle complete. Waiting 1 min...\n")
-        time.sleep(60)
+        time.sleep(60)  # 1 min
+
 
 
 # Start auto scraping in background thread
 threading.Thread(target=auto_scrape, daemon=True).start()
 
-# Team API endpoints
+import os
+from flask import request, jsonify
+
 TEAM_API_KEY = os.environ.get("TEAM_API_KEY")
 
+# ---------------- YouTube Data API ----------------
 @app.route("/api/youtube", methods=["POST"])
 def add_youtube():
     if request.headers.get("X-API-KEY") != TEAM_API_KEY:
@@ -1045,6 +1289,7 @@ def add_youtube():
         return jsonify({"error": str(e)}), 500
 
 
+# ------------- E-Newspaper Image API --------------
 @app.route("/api/enews", methods=["POST"])
 def add_enews():
     if request.headers.get("X-API-KEY") != TEAM_API_KEY:
@@ -1058,11 +1303,12 @@ def add_enews():
         return jsonify({"error": str(e)}), 500
 
 
+
 # ------------------- Run server -------------------
 
 if __name__ == '__main__':
-    print("🚀 Starting Transformer-based ML Multi-language Government News Scraper v4.0...")
-    print("\n📰 Supported Languages:")
+    print("🚀 Starting Improved Multi-language Government News Scraper v2.1...")
+    print("📰 Supported Languages:")
     for lang_key, lang_name in LANGUAGE_MAPPING.items():
         sources = NEWS_SOURCES.get(lang_key, [])
         print(f"  • {lang_name}: {len(sources)} sources")
@@ -1073,36 +1319,48 @@ if __name__ == '__main__':
         print(f"  • {ministry.replace('_', ' ').title()}")
     print()
 
-    print("🤖 ML Models:")
-    print(f"  ✅ Sentiment: {'Loaded' if ml_models.sentiment_model else 'Failed'} (cardiffnlp/twitter-xlm-roberta-base-sentiment)")
-    print(f"  ✅ Ministry Classification: {'Loaded' if ml_models.ministry_classifier else 'Failed'} (facebook/bart-large-mnli)")
-    print(f"  ✅ Device: {'GPU' if ml_models.device == 0 else 'CPU'}")
-    print()
-
     print("📊 Enhanced Features:")
-    print("  ✅ Transformer-based sentiment analysis (multilingual)")
-    print("  ✅ Zero-shot ministry classification with confidence scores")
-    print("  ✅ Multi-language news scraping")
+    print("  ✅ Multi-language news scraping (Hindi, Kannada, Bengali)")
+    print("  ✅ IMPROVED ministry categorization with better keyword matching")
+    print("  ✅ ENHANCED sentiment analysis with negation handling")
+    print("  ✅ Context-aware multilingual sentiment scoring")
+    print("  ✅ Title-weighted keyword analysis")
+    print("  ✅ Partial keyword matching and variations")
+    print("  ✅ Enhanced stop word filtering")
     print("  ✅ Automatic keyword extraction")
     print("  ✅ Article summarization")
-    print("  ✅ Local JSON storage + Supabase sync")
+    print("  ✅ Local JSON storage with schema compliance")
+    print("  ✅ Deduplication using content hashes")
     print("  ✅ RESTful API with filtering and search")
-    print("  ✅ Auto-scraping every 1 minute")
     print()
 
+    if not Path("keywords.json").exists():
+        print("⚠️  WARNING: keywords.json not found!")
+        print("   Please make sure your keywords.json file is in the same directory")
+        print()
+    else:
+        print("✅ Keywords loaded from keywords.json")
+        if MINISTRY_KEYWORDS:
+            total_keywords = sum(
+                len(keywords)
+                for ministry_data in MINISTRY_KEYWORDS.values()
+                for keywords in ministry_data.values()
+            )
+            print(f"   Loaded {len(MINISTRY_KEYWORDS)} ministries with {total_keywords} total keywords")
+        print()
+
     print("🌐 API Endpoints:")
-    print("  • GET  /api/news - Get news articles")
+    print("  • GET  /api/news - Get news articles (supports filtering)")
     print("  • POST /api/scrape - Manually trigger scraping")
-    print("  • GET  /api/search - Search articles")
+    print("  • GET  /api/search - Search articles by keyword")
     print("  • GET  /api/languages - Get supported languages")
     print("  • GET  /api/ministries - Get supported ministries")
     print("  • GET  /api/sources - Get news sources")
-    print("  • GET  /api/stats - Get statistics")
-    print("  • GET  /api/export - Export data")
+    print("  • GET  /api/stats - Get article statistics")
+    print("  • GET  /api/export - Export data for date range")
+    print("  • POST /api/reload-keywords - Reload keywords file")
     print("  • GET  /api/health - Health check")
-    print("  • POST /api/youtube - Add YouTube data (team)")
-    print("  • POST /api/enews - Add E-news data (team)")
     print()
 
-    print("🔧 Server starting on http://localhost:5000")
+    print("🔧 Server starting on https://news-web-scraper-1.onrender.com/api/news")
     app.run(debug=True, port=5000)
