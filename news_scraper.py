@@ -74,17 +74,10 @@ from pathlib import Path
 import threading
 
 # ML imports
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-import tensorflow as tf
-tf.get_logger().setLevel('ERROR')
-
 from transformers import (
     pipeline, 
     AutoTokenizer, 
-    AutoModelForSequenceClassification,
-    AutoModelForSeq2SeqLM
+    AutoModelForSequenceClassification
 )
 import torch
 import warnings
