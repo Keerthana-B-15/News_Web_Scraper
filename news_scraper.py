@@ -145,6 +145,7 @@ class MLModels:
             "defence and military",
             "general news"
         ]
+
         
         self.ministry_mapping = {
             "health and medical services": "health",
@@ -159,96 +160,65 @@ class MLModels:
         }
     
     def analyze_sentiment(self, text):
-        """Analyze sentiment using transformer model"""
-        if not text or len(text) < 10:
+        """Better sentiment scoring: returns positive/negative/neutral properly"""
+
+        if not text or len(text) < 5:
             return 0.0, "neutral"
-        
-        if self.sentiment_model is None or self.sentiment_tokenizer is None:
-            # Fallback to neutral
+
+        if self.sentiment_model is None:
             return 0.0, "neutral"
-        
+
         try:
-            # Truncate text to avoid token limit
-            text_sample = text[:512]
-            
-            # Tokenize
             inputs = self.sentiment_tokenizer(
-                text_sample, 
-                return_tensors="pt", 
-                truncation=True, 
-                max_length=512,
-                padding=True
+                text[:512], return_tensors="pt", truncation=True, padding=True
             )
-            
             if self.device == 0:
                 inputs = {k: v.cuda() for k, v in inputs.items()}
-            
-            # Get predictions
+
             with torch.no_grad():
                 outputs = self.sentiment_model(**inputs)
-                scores = torch.nn.functional.softmax(outputs.logits, dim=-1)
-            
-            # Model outputs: negative, neutral, positive
-            scores_cpu = scores.cpu().numpy()[0]
-            
-            negative_score = scores_cpu[0]
-            neutral_score = scores_cpu[1]
-            positive_score = scores_cpu[2]
-            
-            # Calculate sentiment score (-1 to 1)
-            sentiment_score = positive_score - negative_score
-            
-            # Determine label
-            max_score = max(negative_score, neutral_score, positive_score)
-            if max_score == positive_score:
-                sentiment_label = "positive"
-            elif max_score == negative_score:
-                sentiment_label = "negative"
+                scores = torch.nn.functional.softmax(outputs.logits, dim=1)[0]
+
+            negative, neutral, positive = scores.tolist()
+            sentiment_score = positive - negative
+
+            # 🔥 Improved confidence thresholds
+            if positive > negative and positive > 0.55:
+                label = "positive"
+            elif negative > positive and negative > 0.55:
+                label = "negative"
             else:
-                sentiment_label = "neutral"
-            
-            return round(float(sentiment_score), 3), sentiment_label
-            
+                label = "neutral"
+
+            return round(sentiment_score, 3), label
+
         except Exception as e:
-            logger.error(f"Sentiment analysis error: {e}")
+            logger.error(f"Sentiment error: {e}")
             return 0.0, "neutral"
     
-    def classify_ministries(self, title, content, top_k=3):
-        """Classify article into ministries using zero-shot classification"""
-        
+    def classify_ministries(self, title, content):
+        """Return only ONE ministry with highest confidence"""
+
         if self.ministry_classifier is None:
             return ["general"], {"general": 1.0}
-        
+
         try:
-            # Combine title (more important) and beginning of content
-            text = f"{title}. {title}. {content[:300]}"
-            
-            # Use zero-shot classification
+            # Stronger context prompt
+            text = f"News headline: {title}. Article content: {content[:400]}"
+
             result = self.ministry_classifier(
                 text,
                 candidate_labels=self.ministry_labels,
-                multi_label=True
+                multi_label=False  # 👈 now returns only one main label
             )
-            
-            # Extract results
-            ministry_scores = {}
-            top_ministries = []
-            
-            for label, score in zip(result['labels'], result['scores']):
-                # Only keep scores above threshold
-                if score > 0.15:  # Lower threshold to get more classifications
-                    ministry_key = self.ministry_mapping.get(label, "general")
-                    ministry_scores[ministry_key] = round(float(score), 3)
-                    
-                    if len(top_ministries) < top_k:
-                        top_ministries.append(ministry_key)
-            
-            # If no ministry found, default to general
-            if not top_ministries:
-                return ["general"], {"general": 1.0}
-            
-            return top_ministries, ministry_scores
-            
+
+            best_label = result['labels'][0]
+            best_score = result['scores'][0]
+
+            ministry_key = self.ministry_mapping.get(best_label, "general")
+
+            return [ministry_key], {ministry_key: round(best_score, 3)}
+
         except Exception as e:
             logger.error(f"Ministry classification error: {e}")
             return ["general"], {"general": 1.0}
