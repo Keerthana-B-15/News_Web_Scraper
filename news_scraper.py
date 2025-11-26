@@ -193,9 +193,10 @@ print("✅ Loading sentiment model (cardiffnlp/twitter-roberta-base-sentiment-la
 try:
     SENTIMENT_MODEL = pipeline(
         "sentiment-analysis",
-        model="cardiffnlp/twitter-roberta-base-sentiment-latest",
-        framework="pt"  # ✅ Force PyTorch, no TensorFlow
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        framework="pt"
     )
+
     print("✅ Sentiment model loaded successfully.")
 except Exception as e:
     print("❌ Error loading sentiment model:", e)
