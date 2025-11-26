@@ -6,6 +6,33 @@ and exposes Flask API endpoints for fetching, searching and health checks.
 """
 
 import os
+
+# ------------------- Twilio SMS Alert System -------------------
+from twilio.rest import Client
+
+TWILIO_SID = os.getenv("TWILIO_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_FROM = os.getenv("TWILIO_FROM", "")  # Twilio phone number
+ALERT_TARGET_PHONE = os.getenv("ALERT_TARGET_PHONE", "")  # Your phone number
+
+def send_sms_alert(title, summary, url):
+    """Send SMS alert for NEGATIVE sentiment news."""
+    if not (TWILIO_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM and ALERT_TARGET_PHONE):
+        logger.error("⚠ Twilio credentials missing — SMS not sent.")
+        return
+
+    try:
+        client = Client(TWILIO_SID, TWILIO_AUTH_TOKEN)
+        msg = client.messages.create(
+            body=f"[ALERT] NEGATIVE NEWS\nTitle: {title}\n{summary}\n{url}"[:500],
+            from_=TWILIO_FROM,
+            to=ALERT_TARGET_PHONE
+        )
+        logger.info(f"📩 SMS alert sent for: {title}")
+    except Exception as e:
+        logger.error(f"❌ Failed to send SMS alert: {e}")
+
+
 from dotenv import load_dotenv
 from supabase import create_client
 from transformers import pipeline  # ✅ NEW: HuggingFace sentiment model (PyTorch)
@@ -187,8 +214,8 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- Transformer Sentiment Model (Multilingual + Render Safe) -------------------
-print("🌐 Loading multilingual sentiment model...")
+# ------------------- Lightweight Multilingual Sentiment Model (Render Safe) -------------------
+print("🌐 Loading ultra-light multilingual sentiment model...")
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
@@ -197,37 +224,25 @@ SENTIMENT_TOKENIZER = None
 SENTIMENT_PIPELINE = None
 
 try:
-    # Try Mixed-Distil-BERT (supports Hindi, Kannada, Bengali, English)
-    model_name = "md-nishat-008/Mixed-Distil-BERT"
-    print(f"🔄 Trying: {model_name}")
+    # 🟢 Ultra-light multilingual sentiment model (best for Render Free 512MB)
+    model_name = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+    print(f"🔄 Trying lightweight model: {model_name}")
 
     SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
     SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name)
+
     SENTIMENT_PIPELINE = pipeline(
         "sentiment-analysis",
         model=SENTIMENT_MODEL,
-        tokenizer=SENTIMENT_TOKENIZER
+        tokenizer=SENTIMENT_TOKENIZER,
+        device=-1  # force CPU
     )
 
-    print("✅ Loaded Mixed-Distil-BERT (Multilingual)")
+    print("✅ Loaded ultra-light multilingual sentiment model")
 except Exception as e:
-    print("⚠ Mixed-Distil-BERT failed, falling back to multilingual DistilBERT.", e)
-    try:
-        model_name = "distilbert/distilbert-base-multilingual-cased"
-        print(f"🔄 Trying fallback: {model_name}")
+    print("❌ Could not load lightweight multilingual model!", e)
+    SENTIMENT_PIPELINE = None
 
-        SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
-        SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name)
-        SENTIMENT_PIPELINE = pipeline(
-            "sentiment-analysis",
-            model=SENTIMENT_MODEL,
-            tokenizer=SENTIMENT_TOKENIZER
-        )
-
-        print("✅ Loaded distilbert-base-multilingual-cased fallback model")
-    except Exception as e2:
-        print("❌ Could not load ANY multilingual sentiment model!", e2)
-        SENTIMENT_PIPELINE = None
 
 
 # ------------------- Storage and Article model -------------------
@@ -330,6 +345,10 @@ class NewsArticle:
         self.sentiment_score, self.sentiment_label = self.improved_analyze_sentiment(title, content)
         self.keywords = self.extract_keywords(title, content)
         self.summary = self.generate_summary(title, content)
+        # 🔔 Send SMS alert if sentiment is NEGATIVE
+        if self.sentiment_label.strip().lower() == "negative":
+            send_sms_alert(self.title, self.summary, self.url)
+
 
     def improved_analyze_ministries(self, title, content):
         """Improved ministry analysis with better keyword matching and scoring"""
