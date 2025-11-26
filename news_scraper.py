@@ -821,6 +821,11 @@ scraper = NewsScraper()
 
 # ------------------- Flask API Endpoints -------------------
 
+@app.route("/test-sms")
+def test_sms():
+    send_sms_alert("Test Title", "This is a test summary", "https://test.com")
+    return {"status": "SMS sent"}
+
 
 @app.route('/api/news', methods=['GET'])
 def get_news():
