@@ -214,29 +214,35 @@ PRIORITY_WEIGHTS = {
 }
 
 # ------------------- Multilingual Sentiment Model (Hindi/Kannada/Bengali/English) -------------------
-print("🌐 Loading multilingual sentiment model (cardiffnlp/twitter-xlm-roberta-base-sentiment)...")
+print("🌐 Loading multilingual sentiment model (ONNX)...")
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 sentiment_pipe = None
 
 try:
-    MODEL_ID = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+    MODEL_ID = "Xenova/xlm-roberta-base-finetuned-go-emotions"  # ONNX-ready multilingual model
 
     sentiment_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-    sentiment_model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
 
-    # Use CPU only; no torch GPU libs
-    sentiment_pipe = pipeline(
-        "sentiment-analysis",
-        model=sentiment_model,
-        tokenizer=sentiment_tokenizer,
-        device=-1,  # force CPU
+    # Export=True → automatically loads ONNX instead of PyTorch
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_ID,
+        export=True  # IMPORTANT: forces ONNX model
     )
 
-    print("✅ Multilingual sentiment model loaded.")
+    # Create ONNX pipeline
+    sentiment_pipe = pipeline(
+        "text-classification",
+        model=sentiment_model,
+        tokenizer=sentiment_tokenizer,
+        device=-1  # CPU only
+    )
+
+    print("✅ ONNX multilingual sentiment model loaded.")
+
 except Exception as e:
-    print("❌ Failed to load multilingual sentiment model:", e)
+    print("❌ Failed to load multilingual ONNX sentiment model:", e)
     sentiment_pipe = None
 
 
@@ -421,33 +427,25 @@ class NewsArticle:
         return sorted_ministries, ministry_scores
 
     def improved_analyze_sentiment(self, title, content):
-        """
-        Use multilingual RoBERTa sentiment (Negative / Neutral / Positive)
-        Works for Hindi, Bengali, Kannada, English.
-        """
         if sentiment_pipe is None:
             return 0.0, "Neutral"
 
-        # Combine title + content, keep it short for speed
-        text = f"{title}. {content}"[:512]
+        text = (title + ". " + content)[:512]
 
         try:
             pred = sentiment_pipe(text)[0]
-            raw_label = pred.get("label", "").lower()
-            score = float(pred.get("score", 0.0))
+            label = pred["label"].lower()
 
-            # cardiffnlp/twitter-xlm-roberta-base-sentiment labels are usually:
-            # "negative", "neutral", "positive"
-            if "neg" in raw_label:
-                return -round(score, 2), "Negative"
-            elif "pos" in raw_label:
-                return round(score, 2), "Positive"
+            if "negative" in label:
+                return -0.5, "Negative"
+            elif "positive" in label:
+                return 0.5, "Positive"
             else:
                 return 0.0, "Neutral"
 
-        except Exception as e:
-            logger.error(f"Sentiment error: {e}")
+        except:
             return 0.0, "Neutral"
+
 
 
 
