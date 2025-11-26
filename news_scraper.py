@@ -218,29 +218,24 @@ PRIORITY_WEIGHTS = {
 
 print("🌐 Loading ONNX multilingual sentiment model...")
 
-from optimum.onnxruntime import ORTModelForSequenceClassification
-from transformers import AutoTokenizer, pipeline
+import onnxruntime as ort
+from transformers import AutoTokenizer
 
-SENTIMENT = None
+print("🌐 Loading ONNX sentiment model...")
+
+MODEL = "Xenova/distilbert-base-multilingual-cased-finetuned-sentiment"
+tokenizer = AutoTokenizer.from_pretrained(MODEL)
 
 try:
-    model_id = "Xenova/distilbert-base-multilingual-cased-finetuned-sentiment"
-    print(f"🔄 Loading model: {model_id}")
-
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = ORTModelForSequenceClassification.from_pretrained(model_id)
-
-    SENTIMENT = pipeline(
-        "sentiment-analysis",
-        model=model,
-        tokenizer=tokenizer
+    session = ort.InferenceSession(
+        "model.onnx",
+        providers=["CPUExecutionProvider"]
     )
-
-    print("✅ ONNX Sentiment model loaded successfully.")
+    print("✅ ONNX Model Loaded Successfully")
 
 except Exception as e:
-    print("❌ Failed to load ONNX sentiment model:", e)
-    SENTIMENT = None
+    session = None
+    print("❌ Failed to load ONNX model:", e)
 
 
 
@@ -426,25 +421,20 @@ class NewsArticle:
         return sorted_ministries, ministry_scores
 
     def improved_analyze_sentiment(self, title, content):
-        if SENTIMENT is None:
+        if session is None:
             return 0.0, "Neutral"
 
-        text = f"{title}. {content}"[:512]
+        text = (title + " " + content)[:512]
 
-        try:
-            pred = SENTIMENT(text)[0]
-            label = pred["label"].lower()
-            score = float(pred["score"])
+        inputs = tokenizer(text, return_tensors="np")
 
-            if "positive" in label:
-                return round(score, 2), "Positive"
-            elif "negative" in label:
-                return -round(score, 2), "Negative"
-            else:
-                return 0.0, "Neutral"
+        outputs = session.run(None, {k: v for k, v in inputs.items()})
+        logits = outputs[0]
+        label_id = logits.argmax()
 
-        except Exception:
-            return 0.0, "Neutral"
+        labels = ["Negative", "Neutral", "Positive"]
+        return (0.8 if label_id == 2 else -0.8 if label_id == 0 else 0.0), labels[label_id]
+
 
 
 
