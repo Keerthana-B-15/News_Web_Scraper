@@ -214,34 +214,28 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- Lightweight Multilingual Sentiment Model (Render Safe) -------------------
-print("🌐 Loading ultra-light multilingual sentiment model...")
-
+# ------------------- Lightweight Sentiment Model for Render -------------------
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
-SENTIMENT_MODEL = None
-SENTIMENT_TOKENIZER = None
-SENTIMENT_PIPELINE = None
-
 try:
-    # 🟢 Ultra-light multilingual sentiment model (best for Render Free 512MB)
-    model_name = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
-    print(f"🔄 Trying lightweight model: {model_name}")
+    model_name = "nlptown/bert-base-multilingual-uncased-sentiment"
 
-    SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
-    SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name)
+    sentiment_tokenizer = AutoTokenizer.from_pretrained(model_name)
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
-    SENTIMENT_PIPELINE = pipeline(
+    sentiment_pipe = pipeline(
         "sentiment-analysis",
-        model=SENTIMENT_MODEL,
-        tokenizer=SENTIMENT_TOKENIZER,
-        device=-1  # force CPU
+        model=sentiment_model,
+        tokenizer=sentiment_tokenizer,
+        device=-1  # CPU only
     )
 
-    print("✅ Loaded ultra-light multilingual sentiment model")
+    print("✅ Loaded lightweight sentiment model")
+
 except Exception as e:
-    print("❌ Could not load lightweight multilingual model!", e)
-    SENTIMENT_PIPELINE = None
+    sentiment_pipe = None
+    print("❌ Sentiment model load failed:", e)
+
 
 
 
@@ -425,44 +419,28 @@ class NewsArticle:
         return sorted_ministries, ministry_scores
 
     def improved_analyze_sentiment(self, title, content):
-        """
-        Transformer-based sentiment using cardiffnlp/twitter-roberta-base-sentiment-latest.
-        No rule-based logic, no TensorFlow.
-        """
-        if SENTIMENT_MODEL is None:
+        if sentiment_pipe is None:
             return 0.0, "Neutral"
 
-        # Combine title + content, give natural context
-        text = f"{title}. {content}".strip()
-        if not text:
-            return 0.0, "Neutral"
-
-        # Avoid overly long input (model is trained on tweets; keep it tight)
-        text = text[:512]
+        text = f"{title}. {content}"[:512]
 
         try:
-            pred = SENTIMENT_MODEL(text)[0]
-            label = pred["label"].lower()
-            score = float(pred["score"])
+            pred = sentiment_pipe(text)[0]
+            label = pred['label']
 
-            # Use mapping style you requested ("Positive"/"Negative"/"Neutral")
-            sentiment_label = "Positive" if "positive" in label else (
-                "Negative" if "negative" in label else "Neutral"
-            )
+            # Model returns labels like "1 star", "5 stars"
+            stars = int(label[0])
 
-            # For score, keep sign for negative, positive for positive
-            if sentiment_label == "Negative":
-                sentiment_score = -round(score, 3)
-            elif sentiment_label == "Positive":
-                sentiment_score = round(score, 3)
+            if stars <= 2:
+                return -round(stars / 5, 2), "Negative"
+            elif stars == 3:
+                return 0.0, "Neutral"
             else:
-                sentiment_score = 0.0
+                return round(stars / 5, 2), "Positive"
 
-            return sentiment_score, sentiment_label
-
-        except Exception as e:
-            logger.error(f"Sentiment analysis error: {e}")
+        except:
             return 0.0, "Neutral"
+
 
     def extract_keywords(self, title, content):
         """Extract keywords from title and content with improved filtering"""
