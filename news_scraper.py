@@ -213,37 +213,35 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- Multilingual Sentiment Model (Hindi/Kannada/Bengali/English) -------------------
-print("🌐 Loading multilingual sentiment model (ONNX)...")
+# ------------------- Multilingual ONNX Sentiment Model -------------------
+print("🌐 Loading multilingual ONNX sentiment model...")
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 sentiment_pipe = None
 
 try:
-    MODEL_ID = "Xenova/xlm-roberta-base-finetuned-go-emotions"  # ONNX-ready multilingual model
+    MODEL_ID = "Xenova/distilbert-base-multilingual-cased-emotion"
 
-    sentiment_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
-    # Export=True → automatically loads ONNX instead of PyTorch
-    sentiment_model = AutoModelForSequenceClassification.from_pretrained(
+    model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_ID,
-        export=True  # IMPORTANT: forces ONNX model
+        export=True   # IMPORTANT → forces ONNX model, not PyTorch
     )
 
-    # Create ONNX pipeline
     sentiment_pipe = pipeline(
         "text-classification",
-        model=sentiment_model,
-        tokenizer=sentiment_tokenizer,
-        device=-1  # CPU only
+        model=model,
+        tokenizer=tokenizer,
+        device=-1
     )
 
-    print("✅ ONNX multilingual sentiment model loaded.")
+    print("✅ Multilingual ONNX model loaded.")
 
 except Exception as e:
-    print("❌ Failed to load multilingual ONNX sentiment model:", e)
-    sentiment_pipe = None
+    print("❌ Failed to load multilingual ONNX model:", e)
+
 
 
 
@@ -436,15 +434,20 @@ class NewsArticle:
             pred = sentiment_pipe(text)[0]
             label = pred["label"].lower()
 
-            if "negative" in label:
-                return -0.5, "Negative"
-            elif "positive" in label:
-                return 0.5, "Positive"
+            # Map emotion → sentiment
+            negative = ["anger", "fear", "sadness", "disgust"]
+            positive = ["joy", "love"]
+
+            if label in negative:
+                return -0.6, "Negative"
+            elif label in positive:
+                return 0.6, "Positive"
             else:
                 return 0.0, "Neutral"
 
         except:
             return 0.0, "Neutral"
+
 
 
 
