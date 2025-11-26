@@ -35,7 +35,6 @@ def send_sms_alert(title, summary, url):
 
 from dotenv import load_dotenv
 from supabase import create_client
-from transformers import pipeline  # ✅ NEW: HuggingFace sentiment model (PyTorch)
 
 # Load .env file (local development)
 load_dotenv()
@@ -214,30 +213,31 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- ONNX Runtime Sentiment Model (Multilingual + Lightweight) -------------------
+# ------------------- Multilingual Sentiment Model (Hindi/Kannada/Bengali/English) -------------------
+print("🌐 Loading multilingual sentiment model (cardiffnlp/twitter-xlm-roberta-base-sentiment)...")
 
-print("🌐 Loading ONNX multilingual sentiment model...")
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
-import onnxruntime as ort
-from transformers import AutoTokenizer
-
-print("🌐 Loading ONNX sentiment model...")
-
-MODEL = "Xenova/distilbert-base-multilingual-cased-finetuned-sentiment"
-tokenizer = AutoTokenizer.from_pretrained(MODEL)
+sentiment_pipe = None
 
 try:
-    session = ort.InferenceSession(
-        "model.onnx",
-        providers=["CPUExecutionProvider"]
+    MODEL_ID = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+
+    sentiment_tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
+
+    # Use CPU only; no torch GPU libs
+    sentiment_pipe = pipeline(
+        "sentiment-analysis",
+        model=sentiment_model,
+        tokenizer=sentiment_tokenizer,
+        device=-1,  # force CPU
     )
-    print("✅ ONNX Model Loaded Successfully")
 
+    print("✅ Multilingual sentiment model loaded.")
 except Exception as e:
-    session = None
-    print("❌ Failed to load ONNX model:", e)
-
-
+    print("❌ Failed to load multilingual sentiment model:", e)
+    sentiment_pipe = None
 
 
 
@@ -421,19 +421,33 @@ class NewsArticle:
         return sorted_ministries, ministry_scores
 
     def improved_analyze_sentiment(self, title, content):
-        if session is None:
+        """
+        Use multilingual RoBERTa sentiment (Negative / Neutral / Positive)
+        Works for Hindi, Bengali, Kannada, English.
+        """
+        if sentiment_pipe is None:
             return 0.0, "Neutral"
 
-        text = (title + " " + content)[:512]
+        # Combine title + content, keep it short for speed
+        text = f"{title}. {content}"[:512]
 
-        inputs = tokenizer(text, return_tensors="np")
+        try:
+            pred = sentiment_pipe(text)[0]
+            raw_label = pred.get("label", "").lower()
+            score = float(pred.get("score", 0.0))
 
-        outputs = session.run(None, {k: v for k, v in inputs.items()})
-        logits = outputs[0]
-        label_id = logits.argmax()
+            # cardiffnlp/twitter-xlm-roberta-base-sentiment labels are usually:
+            # "negative", "neutral", "positive"
+            if "neg" in raw_label:
+                return -round(score, 2), "Negative"
+            elif "pos" in raw_label:
+                return round(score, 2), "Positive"
+            else:
+                return 0.0, "Neutral"
 
-        labels = ["Negative", "Neutral", "Positive"]
-        return (0.8 if label_id == 2 else -0.8 if label_id == 0 else 0.0), labels[label_id]
+        except Exception as e:
+            logger.error(f"Sentiment error: {e}")
+            return 0.0, "Neutral"
 
 
 
