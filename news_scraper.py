@@ -187,20 +187,48 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- Transformer Sentiment Model (no rule-based, no TF) -------------------
+# ------------------- Transformer Sentiment Model (Multilingual + Render Safe) -------------------
+print("🌐 Loading multilingual sentiment model...")
 
-print("✅ Loading sentiment model (cardiffnlp/twitter-roberta-base-sentiment-latest)...")
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
+SENTIMENT_MODEL = None
+SENTIMENT_TOKENIZER = None
+SENTIMENT_PIPELINE = None
+
 try:
-    SENTIMENT_MODEL = pipeline(
+    # Try Mixed-Distil-BERT (supports Hindi, Kannada, Bengali, English)
+    model_name = "md-nishat-008/Mixed-Distil-BERT"
+    print(f"🔄 Trying: {model_name}")
+
+    SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
+    SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name)
+    SENTIMENT_PIPELINE = pipeline(
         "sentiment-analysis",
-        model="distilbert-base-uncased-finetuned-sst-2-english",
-        framework="pt"
+        model=SENTIMENT_MODEL,
+        tokenizer=SENTIMENT_TOKENIZER
     )
 
-    print("✅ Sentiment model loaded successfully.")
+    print("✅ Loaded Mixed-Distil-BERT (Multilingual)")
 except Exception as e:
-    print("❌ Error loading sentiment model:", e)
-    SENTIMENT_MODEL = None
+    print("⚠ Mixed-Distil-BERT failed, falling back to multilingual DistilBERT.", e)
+    try:
+        model_name = "distilbert/distilbert-base-multilingual-cased"
+        print(f"🔄 Trying fallback: {model_name}")
+
+        SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
+        SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name)
+        SENTIMENT_PIPELINE = pipeline(
+            "sentiment-analysis",
+            model=SENTIMENT_MODEL,
+            tokenizer=SENTIMENT_TOKENIZER
+        )
+
+        print("✅ Loaded distilbert-base-multilingual-cased fallback model")
+    except Exception as e2:
+        print("❌ Could not load ANY multilingual sentiment model!", e2)
+        SENTIMENT_PIPELINE = None
+
 
 # ------------------- Storage and Article model -------------------
 
