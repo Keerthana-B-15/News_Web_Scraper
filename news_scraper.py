@@ -214,27 +214,34 @@ PRIORITY_WEIGHTS = {
     "low_priority": 1
 }
 
-# ------------------- Lightweight Sentiment Model for Render -------------------
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+# ------------------- ONNX Runtime Sentiment Model (Multilingual + Lightweight) -------------------
+
+print("🌐 Loading ONNX multilingual sentiment model...")
+
+from optimum.onnxruntime import ORTModelForSequenceClassification
+from transformers import AutoTokenizer, pipeline
+
+SENTIMENT = None
 
 try:
-    model_name = "nlptown/bert-base-multilingual-uncased-sentiment"
+    model_id = "Xenova/distilbert-base-multilingual-cased-finetuned-sentiment"
+    print(f"🔄 Loading model: {model_id}")
 
-    sentiment_tokenizer = AutoTokenizer.from_pretrained(model_name)
-    sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = ORTModelForSequenceClassification.from_pretrained(model_id)
 
-    sentiment_pipe = pipeline(
+    SENTIMENT = pipeline(
         "sentiment-analysis",
-        model=sentiment_model,
-        tokenizer=sentiment_tokenizer,
-        device=-1  # CPU only
+        model=model,
+        tokenizer=tokenizer
     )
 
-    print("✅ Loaded lightweight sentiment model")
+    print("✅ ONNX Sentiment model loaded successfully.")
 
 except Exception as e:
-    sentiment_pipe = None
-    print("❌ Sentiment model load failed:", e)
+    print("❌ Failed to load ONNX sentiment model:", e)
+    SENTIMENT = None
+
 
 
 
@@ -419,27 +426,26 @@ class NewsArticle:
         return sorted_ministries, ministry_scores
 
     def improved_analyze_sentiment(self, title, content):
-        if sentiment_pipe is None:
+        if SENTIMENT is None:
             return 0.0, "Neutral"
 
         text = f"{title}. {content}"[:512]
 
         try:
-            pred = sentiment_pipe(text)[0]
-            label = pred['label']
+            pred = SENTIMENT(text)[0]
+            label = pred["label"].lower()
+            score = float(pred["score"])
 
-            # Model returns labels like "1 star", "5 stars"
-            stars = int(label[0])
-
-            if stars <= 2:
-                return -round(stars / 5, 2), "Negative"
-            elif stars == 3:
-                return 0.0, "Neutral"
+            if "positive" in label:
+                return round(score, 2), "Positive"
+            elif "negative" in label:
+                return -round(score, 2), "Negative"
             else:
-                return round(stars / 5, 2), "Positive"
+                return 0.0, "Neutral"
 
-        except:
+        except Exception:
             return 0.0, "Neutral"
+
 
 
     def extract_keywords(self, title, content):
